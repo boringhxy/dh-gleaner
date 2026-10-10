@@ -1,0 +1,30 @@
+# ---- 虚拟环境与缓存 ----
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+build/
+dist/
+
+# ---- 本地凭据（务必精确匹配，不可写成 config.local.*，否则会连模板一起忽略）----
+config.local.json
+
+# ---- 抓取产物与运行现场 ----
+data/
+logs/
+tmp/
+
+# ---- 编辑器 / 系统 / 智能体工作区 ----
+.DS_Store
+.idea/
+.vscode/
+.workbuddy/
+
+# ---- 内部文档（不进公开仓库，对外说明统一放在 docs/）----
+product_specs/
+HANDOVER.md
+工程Prompt_*.md

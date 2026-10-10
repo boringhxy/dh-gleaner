@@ -1,0 +1,145 @@
+{
+  "journals": [
+    {
+      "name": "数字人文研究",
+      "url": "http://dhr.ruc.edu.cn/",
+      "currentIssueUrl": "http://dhr.ruc.edu.cn/CN/2096-9155/current.shtml",
+      "archiveUrl": "http://dhr.ruc.edu.cn/CN/article/showOldVolumn.do",
+      "parser": "journy3",
+      "publishRule": "季末28日",
+      "autoDownloadPdf": true,
+      "pdfNote": "开放获取，自动下载"
+    },
+    {
+      "name": "数字人文",
+      "url": "https://szrw.cbpt.cnki.net/",
+      "currentIssueUrl": "https://szrw.cbpt.cnki.net/WKC/WebPublication/index.aspx?mid=SZRW",
+      "parser": "cnki_cbpt",
+      "publishRule": "季初约1日，偶有延迟",
+      "autoDownloadPdf": false,
+      "pdfNote": "CNKI验证码保护，PDF链接记录在Extra字段，需学校账号登录后手动下载"
+    },
+    {
+      "name": "中国数字人文",
+      "url": "https://www.dhcn.cn/",
+      "currentIssueUrl": "",
+      "parser": "generic_html",
+      "publishRule": "半年刊；名录未提供稳定公开目录页",
+      "autoDownloadPdf": false,
+      "pdfNote": "暂无稳定公开目录页；请用 --url 提供可访问目录页，导入时以元数据降级为主",
+      "genericRules": {
+        "allowedDomains": [
+          "dhcn.cn",
+          "mp.weixin.qq.com"
+        ],
+        "titleBlacklist": [
+          "Read More",
+          "首页",
+          "数据库",
+          "精选期刊",
+          "最新消息"
+        ],
+        "titleKeywords": [
+          "数字人文",
+          "人文",
+          "数据",
+          "历史",
+          "文献"
+        ],
+        "sourceType": "manual_curated",
+        "sourceNote": "DHCN/中国数字人文来源常跳转微信；作者和摘要可能无法自动补全，仅保留题名和链接。"
+      }
+    },
+    {
+      "name": "数位典藏与数位人文",
+      "url": "http://www.tadh.org.tw/",
+      "currentIssueUrl": "",
+      "parser": "generic_html",
+      "publishRule": "半年刊；中国台湾地区期刊，公开目录页需手动确认",
+      "autoDownloadPdf": false,
+      "pdfNote": "请用 --url 提供可访问目录页；导入时以元数据降级为主",
+      "genericRules": {
+        "allowedDomains": [
+          "tadh.org.tw",
+          "airitilibrary.com"
+        ],
+        "titleBlacklist": [
+          "Read More",
+          "精选期刊",
+          "数据库",
+          "最新消息",
+          "Airiti Library"
+        ],
+        "requiredPageText": [
+          "数位典藏"
+        ],
+        "sourceType": "manual_curated",
+        "sourceNote": "Airiti 页面必须通过期刊名/IssueID/标题校验；若返回平台宣传或推荐内容则不覆盖旧清单。"
+      }
+    },
+    {
+      "name": "图书馆杂志",
+      "url": "https://www.libraryjournal.com.cn/",
+      "currentIssueUrl": "https://www.libraryjournal.com.cn/CN/1000-4254/current.shtml",
+      "archiveUrl": "https://www.libraryjournal.com.cn/CN/article/showOldVolumn.do",
+      "parser": "magtech",
+      "publishRule": "月刊；设有数字人文常设栏目",
+      "autoDownloadPdf": true,
+      "pdfNote": "公开期刊系统，导入选中文章时能下载则自动挂载；站点可能偶发 412/SSL 拦截",
+      "historyUrlTemplate": "https://www.libraryjournal.com.cn/CN/Y{year}/V{volume}/I{issue}",
+      "channelSources": [
+        {
+          "channel": "数字人文",
+          "aliases": [
+            "数字人文栏目"
+          ],
+          "url": "https://www.libraryjournal.com.cn/CN/article/showChannelArticle.do?id=60",
+          "sourceType": "channel",
+          "note": "栏目页共多页，按分页脚本 changePage 自动抓取；每篇文章保留原站点年卷期。"
+        }
+      ]
+    },
+    {
+      "name": "图书馆论坛",
+      "url": "http://tsglt.zslib.com.cn/",
+      "currentIssueUrl": "http://tsglt.zslib.com.cn/CN/1002-1167/current.shtml",
+      "archiveUrl": "http://tsglt.zslib.com.cn/CN/article/showOldVolumn.do",
+      "parser": "magtech",
+      "publishRule": "月刊；设有数字人文常设栏目",
+      "autoDownloadPdf": true,
+      "pdfNote": "公开期刊系统，导入选中文章时能下载则自动挂载",
+      "historyUrlTemplate": "http://tsglt.zslib.com.cn/CN/Y{year}/V{volume}/I{issue}",
+      "volumeYearBase": 2026,
+      "volumeBase": 46
+    }
+  ],
+  "zotero": {
+    "mode": "web",
+    "localPort": 23119,
+    "webLibraryId": "",
+    "webApiKey": "",
+    "libraryType": "user",
+    "collectionPath": [
+      "10-研究相关",
+      "数字人文"
+    ],
+    "journalCollections": {
+      "数字人文研究": "《数字人文研究》",
+      "数字人文": "《数字人文》",
+      "中国数字人文": "《中国数字人文》",
+      "数位典藏与数位人文": "《数位典藏与数位人文》",
+      "图书馆杂志": "《图书馆杂志》",
+      "图书馆论坛": "《图书馆论坛》"
+    },
+    "autoCreateCollection": false
+  },
+  "stateFile": "./data/state.json",
+  "logFile": "./logs/capture.log",
+  "tempDir": "./tmp",
+  "http": {
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    "timeout": 30,
+    "maxRetries": 3,
+    "retryInterval": 30
+  }
+}
