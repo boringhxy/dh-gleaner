@@ -1,4 +1,4 @@
-# DH Journal Agent
+# DH Gleaner
 
 **English** | [简体中文](README.md)
 
@@ -29,40 +29,40 @@ This tool splits the job into three stages:
 Python 3.10 or later is required.
 
 ```bash
-git clone https://github.com/boringhxy/dh-journal-agent.git
-cd dh-journal-agent
+git clone https://github.com/boringhxy/dh-gleaner.git
+cd dh-gleaner
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
 ```
 
-This installs the `dhjournal` command. To let MCP-capable AI clients (Claude Desktop, Cherry Studio, and others) call the tool directly, add the MCP extra:
+This installs the `dhgleaner` command. To let MCP-capable AI clients (Claude Desktop, Cherry Studio, and others) call the tool directly, add the MCP extra:
 
 ```bash
 pip install -e ".[mcp]"
 ```
 
-That additionally provides the `dhjournal-mcp` entry point. Skipping `[mcp]` does not affect command-line usage.
+That additionally provides the `dhgleaner-mcp` entry point. Skipping `[mcp]` does not affect command-line usage.
 
-> `python -m dhjournal` is equivalent to `dhjournal`. If your virtual environment is not activated, `./.venv/bin/dhjournal` works too.
+> `python -m dhgleaner` is equivalent to `dhgleaner`. If your virtual environment is not activated, `./.venv/bin/dhgleaner` works too.
 
 ## Quick start
 
 Capturing and screening need **no Zotero credentials** — try it right after install:
 
 ```bash
-dhjournal capture --journal "数字人文研究" --year 2026 --volume 6 --issue 2   # 1. Fetch the issue TOC
-dhjournal review                 # 2. Read the shortlist and note the indices you want
+dhgleaner capture --journal "数字人文研究" --year 2026 --volume 6 --issue 2   # 1. Fetch the issue TOC
+dhgleaner review                 # 2. Read the shortlist and note the indices you want
 ```
 
 Configure your own credentials only when you're ready to write into Zotero:
 
 ```bash
-dhjournal init                        # 3. Interactive setup: enter credentials, test connection, optionally create collections
-dhjournal import --selection "1,3,5"  # 4. Import only the selected articles
+dhgleaner init                        # 3. Interactive setup: enter credentials, test connection, optionally create collections
+dhgleaner import --selection "1,3,5"  # 4. Import only the selected articles
 ```
 
-`dhjournal init` writes credentials to `config.local.json` under the data dir (never committed, never uploaded, never echoed); in a non-interactive shell it prints manual steps instead of blocking. To check readiness only, run `dhjournal doctor --zotero`.
+`dhgleaner init` writes credentials to `config.local.json` under the data dir (never committed, never uploaded, never echoed); in a non-interactive shell it prints manual steps instead of blocking. To check readiness only, run `dhgleaner doctor --zotero`.
 
 ## Command reference
 
@@ -71,10 +71,10 @@ Every `x` below is a placeholder. Replace it with an actual number at run time.
 ### Initialization
 
 ```bash
-dhjournal init                   # interactive wizard: enter Zotero credentials → test connection → optionally create collections → self-check
-dhjournal init-collections       # read-only preview: show which collection levels are missing per journal (writes nothing)
-dhjournal init-collections --yes # actually create the missing collections after you confirm
-dhjournal init-collections --journal "图书馆论坛" --yes   # only fix up one journal
+dhgleaner init                   # interactive wizard: enter Zotero credentials → test connection → optionally create collections → self-check
+dhgleaner init-collections       # read-only preview: show which collection levels are missing per journal (writes nothing)
+dhgleaner init-collections --yes # actually create the missing collections after you confirm
+dhgleaner init-collections --journal "图书馆论坛" --yes   # only fix up one journal
 ```
 
 `init-collections` previews by default and only writes to Zotero with `--yes`; the import flow itself still never creates collections on its own.
@@ -82,29 +82,29 @@ dhjournal init-collections --journal "图书馆论坛" --yes   # only fix up one
 ### Diagnostics
 
 ```bash
-dhjournal doctor                 # dependencies, data directory, configuration file
-dhjournal doctor --zotero        # additionally connect to Zotero and check each journal collection
-dhjournal doctor --network       # additionally run a network connectivity check
+dhgleaner doctor                 # dependencies, data directory, configuration file
+dhgleaner doctor --zotero        # additionally connect to Zotero and check each journal collection
+dhgleaner doctor --network       # additionally run a network connectivity check
 ```
 
 ### Capture
 
 | Mode | When to use | Command |
 |------|-------------|---------|
-| Issue | One issue of one journal | `dhjournal capture --journal "期刊名" --year x --issue x` |
-| Volume + issue | When the volume number matters | `dhjournal capture --journal "期刊名" --year x --volume x --issue x` |
-| Section | A cross-issue section, full history | `dhjournal capture-channel --journal "图书馆杂志" --channel "数字人文"` |
-| Manual contents page | Announcement pages, WeChat listings, unstable Airiti pages | `dhjournal capture --journal "期刊名" --url "contents-page-URL"` |
+| Issue | One issue of one journal | `dhgleaner capture --journal "期刊名" --year x --issue x` |
+| Volume + issue | When the volume number matters | `dhgleaner capture --journal "期刊名" --year x --volume x --issue x` |
+| Section | A cross-issue section, full history | `dhgleaner capture-channel --journal "图书馆杂志" --channel "数字人文"` |
+| Manual contents page | Announcement pages, WeChat listings, unstable Airiti pages | `dhgleaner capture --journal "期刊名" --url "contents-page-URL"` |
 
 ```bash
-dhjournal capture --journal "数字人文研究" --year x --issue x
-dhjournal capture --journal "数字人文研究" --year x --volume x --issue x
-dhjournal capture --journal "图书馆论坛" --year x --issue x
-dhjournal capture --journal "图书馆杂志" --year x --issue x
-dhjournal capture-channel --journal "图书馆杂志" --channel "数字人文"
-dhjournal capture --journal "中国数字人文" --url "real contents page URL"
-dhjournal capture --journal "数位典藏与数位人文" --url "real contents page URL"
-dhjournal capture --all-journals --year x --issue x   # explicitly capture every configured journal
+dhgleaner capture --journal "数字人文研究" --year x --issue x
+dhgleaner capture --journal "数字人文研究" --year x --volume x --issue x
+dhgleaner capture --journal "图书馆论坛" --year x --issue x
+dhgleaner capture --journal "图书馆杂志" --year x --issue x
+dhgleaner capture-channel --journal "图书馆杂志" --channel "数字人文"
+dhgleaner capture --journal "中国数字人文" --url "real contents page URL"
+dhgleaner capture --journal "数位典藏与数位人文" --url "real contents page URL"
+dhgleaner capture --all-journals --year x --issue x   # explicitly capture every configured journal
 ```
 
 `capture --year x --issue x` without a journal is rejected — capturing everything requires the explicit `--all-journals` flag.
@@ -112,14 +112,14 @@ dhjournal capture --all-journals --year x --issue x   # explicitly capture every
 ### Screen and import
 
 ```bash
-dhjournal review                                        # re-display the most recent shortlist
-dhjournal abstract --index 1                            # show the full abstract of one article
-dhjournal export-review                                 # export data/review_selection.xlsx
-dhjournal import --spreadsheet data/review_selection.xlsx          # import rows ticked in the sheet
-dhjournal import --spreadsheet data/review_selection.xlsx --dry-run # preview only
-dhjournal import --selection "1,3,5"                    # import by index
-dhjournal import --titles-file "titles.txt" --confirm-titles       # import by title matching
-dhjournal import --selection "都不要"                    # skip this batch entirely
+dhgleaner review                                        # re-display the most recent shortlist
+dhgleaner abstract --index 1                            # show the full abstract of one article
+dhgleaner export-review                                 # export data/review_selection.xlsx
+dhgleaner import --spreadsheet data/review_selection.xlsx          # import rows ticked in the sheet
+dhgleaner import --spreadsheet data/review_selection.xlsx --dry-run # preview only
+dhgleaner import --selection "1,3,5"                    # import by index
+dhgleaner import --titles-file "titles.txt" --confirm-titles       # import by title matching
+dhgleaner import --selection "都不要"                    # skip this batch entirely
 ```
 
 `export-review` writes `data/review_selection.xlsx`; set the "是否导入" column to "是" on the "筛选" sheet, then run `import --spreadsheet`.
@@ -127,19 +127,19 @@ dhjournal import --selection "都不要"                    # skip this batch en
 A **selection basket** is handy when you browse and collect as you go:
 
 ```bash
-dhjournal screen --list                     # current basket
-dhjournal screen --search "keyword"         # find indices by keyword
-dhjournal screen --add "1,3-5"              # add to the basket
-dhjournal screen --remove "3"
-dhjournal screen --clear
-dhjournal screen --import                   # import everything in the basket
+dhgleaner screen --list                     # current basket
+dhgleaner screen --search "keyword"         # find indices by keyword
+dhgleaner screen --add "1,3-5"              # add to the basket
+dhgleaner screen --remove "3"
+dhgleaner screen --clear
+dhgleaner screen --import                   # import everything in the basket
 ```
 
 ### Misc
 
 ```bash
-dhjournal --data-dir /path/to/dir <subcommand>   # use a temporary data directory
-dhjournal --help
+dhgleaner --data-dir /path/to/dir <subcommand>   # use a temporary data directory
+dhgleaner --help
 ```
 
 `import --all` still exists for the rare case where you want an entire issue, but it is not the recommended path.
@@ -164,7 +164,7 @@ The tool speaks to Zotero through the Web API and uses **your own** credentials.
 
 `config.local.json` is listed in `.gitignore` and never enters version control. **Never paste the key into public documents or commits.**
 
-Verify with `dhjournal doctor --zotero`: it reads every collection and checks the target paths one by one.
+Verify with `dhgleaner doctor --zotero`: it reads every collection and checks the target paths one by one.
 
 The following collection paths must already exist in Zotero:
 
@@ -179,7 +179,7 @@ The following collection paths must already exist in Zotero:
     └── 《图书馆论坛》
 ```
 
-Corresponding settings in the default config `dhjournal/defaults/config.json` (to customize, drop a `config.json` in your data directory to override):
+Corresponding settings in the default config `dhgleaner/defaults/config.json` (to customize, drop a `config.json` in your data directory to override):
 
 ```json
 "collectionPath": ["10-研究相关", "数字人文"],
@@ -214,7 +214,7 @@ The project ships an MCP server that MCP-capable clients can call directly.
 
 ```bash
 pip install -e ".[mcp]"
-dhjournal-mcp      # runs the MCP server over stdio
+dhgleaner-mcp      # runs the MCP server over stdio
 ```
 
 Example client configuration:
@@ -222,8 +222,8 @@ Example client configuration:
 ```json
 {
   "mcpServers": {
-    "dh-journal-agent": {
-      "command": "dhjournal-mcp"
+    "dh-gleaner": {
+      "command": "dhgleaner-mcp"
     }
   }
 }
@@ -294,9 +294,9 @@ By default these live under `data/` in the project root (this is configurable, s
 Resolved in this order; the first match wins:
 
 1. `--data-dir /path/to/dir` on the command line
-2. `DHJOURNAL_DATA_DIR=/path/to/dir` in the environment
+2. `DHGLEANER_DATA_DIR=/path/to/dir` in the environment
 3. If the current working directory contains `config.json` or `data/`, use it (legacy layout)
-4. Fallback to `~/.dhjournal`
+4. Fallback to `~/.dhgleaner`
 
 ## Capture quality checks
 

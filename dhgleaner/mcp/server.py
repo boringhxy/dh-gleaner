@@ -2,14 +2,14 @@
 
 启动方式（stdio 传输，供 Claude Desktop / Cursor / WorkBuddy 等客户端拉起）::
 
-    dhjournal-mcp
+    dhgleaner-mcp
     # 或
-    python -m dhjournal.mcp.server
+    python -m dhgleaner.mcp.server
 
 三条硬约束：
 
 1. **stdout 只走 JSON-RPC**。日志在启动时被强制切到 stderr（见 `logging_setup`），
-   本包内任何模块都不允许出现 `print`（pyproject 里对 `dhjournal/mcp/` 关了 T201）。
+   本包内任何模块都不允许出现 `print`（pyproject 里对 `dhgleaner/mcp/` 关了 T201）。
 2. **工具层不碰 CLI**。工具直接调用 `service` / `selection` 层，绝不调用 `cli.cmdXxx`。
 3. **只有 `import_to_zotero` 会写 Zotero**，且需要 `confirm=true` 与 `dryRun=false` 同时成立。
 """
@@ -22,7 +22,7 @@ from .. import __version__
 from ..config import loadConfig
 from ..logging_setup import setupLogging
 
-INSTRUCTIONS = """数字人文期刊捕获工具：按刊按期巡检中文期刊目录页，人工筛选后再写入 Zotero。
+INSTRUCTIONS = """数字人文期刊采集器：按刊按期巡检中文期刊目录页，人工筛选后再写入 Zotero。
 
 工作流：
 1. list_journals 看支持哪些刊；run_doctor 确认环境就绪。
@@ -43,8 +43,8 @@ def buildServer():
     from . import tools_capture, tools_import, tools_read
 
     server = MCPServer(
-        name="dh-journal-agent",
-        title="数字人文期刊捕获",
+        name="dh-gleaner",
+        title="数字人文期刊采集器",
         version=__version__,
         instructions=INSTRUCTIONS,
     )
@@ -67,7 +67,7 @@ def main() -> None:
         server = buildServer()
     except ImportError:
         # 用 stderr 直写而不是 print：本包被 ruff 的 T201 规则保护，杜绝 stdout 污染
-        sys.stderr.write('缺少 MCP 依赖。请安装：pip install "dh-journal-agent[mcp]"\n')
+        sys.stderr.write('缺少 MCP 依赖。请安装：pip install "dh-gleaner[mcp]"\n')
         raise SystemExit(1) from None
 
     server.run("stdio")

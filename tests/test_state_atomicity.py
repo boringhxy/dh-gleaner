@@ -15,8 +15,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from dhjournal.models import Article
-from dhjournal.state import StateManager
+from dhgleaner.models import Article
+from dhgleaner.state import StateManager
 
 
 def _article(title: str, url: str) -> Article:

@@ -17,10 +17,10 @@ try:
 except ImportError:
     from helpers import pendingPayload, tempDataDir, writePending
 
-from dhjournal.mcp import tools_capture, tools_import, tools_read
-from dhjournal.mcp.errors import KIND_BLOCKED, KIND_CAPTCHA, KIND_NETWORK, classifyFailure
-from dhjournal.mcp.server import buildServer
-from dhjournal.service import loadPending
+from dhgleaner.mcp import tools_capture, tools_import, tools_read
+from dhgleaner.mcp.errors import KIND_BLOCKED, KIND_CAPTCHA, KIND_NETWORK, classifyFailure
+from dhgleaner.mcp.server import buildServer
+from dhgleaner.service import loadPending
 
 # buildServer() 会惰性 import mcp；未装 mcp 依赖时只跳过这一条注册校验，
 # 其余工具层用例（纯 dict 逻辑）照常运行，保证本地 `pip install -e '.[dev]'` 即可跑测试。
@@ -183,7 +183,7 @@ class ImportGateTests(unittest.TestCase):
 
         def fakeRunImport(selected, articles, markdown, cfg, **kwargs):
             self.calls.append([a.title for a in selected])
-            from dhjournal.service import ImportOutcome
+            from dhgleaner.service import ImportOutcome
 
             if self.abort:
                 return ImportOutcome(

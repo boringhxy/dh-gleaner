@@ -60,9 +60,9 @@ jobs:
           wheel = glob.glob("dist/*.whl")[0]
           names = zipfile.ZipFile(wheel).namelist()
           required = [
-              "dhjournal/defaults/config.json",
-              "dhjournal/defaults/config.local.example.json",
-              "dhjournal/mcp/server.py",
+              "dhgleaner/defaults/config.json",
+              "dhgleaner/defaults/config.local.example.json",
+              "dhgleaner/mcp/server.py",
           ]
           missing = [name for name in required if name not in names]
           if missing:

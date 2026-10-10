@@ -38,7 +38,7 @@
 | `zoteroKey` | string | 导入后的 Zotero key |
 | `failReason` | string | 导入失败原因 |
 
-字段定义以 `dhjournal/models.py` 为准，本表提供语义说明。
+字段定义以 `dhgleaner/models.py` 为准，本表提供语义说明。
 
 ## `data/pending.json`
 
@@ -106,7 +106,7 @@
 }
 ```
 
-实际字段以 `dhjournal/state.py` 为准。
+实际字段以 `dhgleaner/state.py` 为准。
 
 > 已知限制：`state.json` 没有归档或裁剪机制，长期使用会持续增长。
 

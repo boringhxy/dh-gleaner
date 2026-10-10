@@ -128,7 +128,7 @@ def renderCatalog(
             lines.append(article.abstract or "（摘要暂未获取；如需导入，Zotero 条目会保留基本信息并标注摘要需手动补充。）")
             lines.append("")
         lines.append("---")
-        lines.append("请根据上方目录和摘要筛选文章，再运行 `dhjournal import --selection \"编号\"` 只导入需要的文章。")
+        lines.append("请根据上方目录和摘要筛选文章，再运行 `dhgleaner import --selection \"编号\"` 只导入需要的文章。")
         lines.append("捕获阶段只保存元数据和摘要，不导入 Zotero，也不下载 PDF。")
     else:
         lines.append("---\n所有期刊均无新文章。")

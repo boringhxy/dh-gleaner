@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import unittest
 
-from dhjournal.models import Article
-from dhjournal.zotero_client import ZoteroClient
+from dhgleaner.models import Article
+from dhgleaner.zotero_client import ZoteroClient
 
 
 class FakeZot:

@@ -168,14 +168,14 @@ def renderBasketSummary(articles: List[Article], state: BasketState) -> str:
         lines.append("")
         lines.append(renderArticleRows(selected, state.indexes))
         lines.append("")
-        lines.append("导入命令: dhjournal screen --import")
-        lines.append(f"等价编号: dhjournal import --selection \"{','.join(str(i) for i in state.indexes)}\"")
+        lines.append("导入命令: dhgleaner screen --import")
+        lines.append(f"等价编号: dhgleaner import --selection \"{','.join(str(i) for i in state.indexes)}\"")
     else:
         lines.append("")
         lines.append("可用命令示例：")
-        lines.append("- dhjournal screen --list")
-        lines.append("- dhjournal screen --search \"关键词\"")
-        lines.append("- dhjournal screen --add \"1,3-5\"")
+        lines.append("- dhgleaner screen --list")
+        lines.append("- dhgleaner screen --search \"关键词\"")
+        lines.append("- dhgleaner screen --add \"1,3-5\"")
     return "\n".join(lines)
 
 

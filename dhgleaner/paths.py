@@ -3,9 +3,9 @@
 解析优先级（`resolveDataDir`）：
 
 1. `--data-dir` 命令行参数（单次生效）
-2. `DHJOURNAL_DATA_DIR` 环境变量（永久生效）
+2. `DHGLEANER_DATA_DIR` 环境变量（永久生效）
 3. 遗留探测：当前工作目录下存在 `config.json` 或 `data/`，即视为项目根
-4. 兜底 `~/.dhjournal`
+4. 兜底 `~/.dhgleaner`
 
 本模块**只读探测**，不迁移、不删除任何现有文件；所有产物路径都以数据目录为根，
 沿用 `data/`、`logs/`、`tmp/` 的既有布局，因此遗留模式下的落盘位置与改造前逐字节一致。
@@ -20,8 +20,8 @@ from importlib import resources
 from pathlib import Path
 from typing import Iterator, Optional, Union
 
-ENV_DATA_DIR = "DHJOURNAL_DATA_DIR"
-DEFAULT_DIR_NAME = ".dhjournal"
+ENV_DATA_DIR = "DHGLEANER_DATA_DIR"
+DEFAULT_DIR_NAME = ".dhgleaner"
 
 ENV_LIBRARY_ID = ("ZOTERO_LIBRARY_ID", "ZOTERO_WEB_LIBRARY_ID")
 ENV_API_KEY = ("ZOTERO_API_KEY", "ZOTERO_WEB_API_KEY")
@@ -186,7 +186,7 @@ def resolveRuntimePath(value: Optional[str], fallback: Path) -> Path:
 
 def _packageData(name: str) -> Path:
     try:
-        return Path(str(resources.files("dhjournal") / "defaults" / name))
+        return Path(str(resources.files("dhgleaner") / "defaults" / name))
     except Exception:  # 未安装且无法定位包时回退到源码目录
         return Path(__file__).resolve().parent / "defaults" / name
 

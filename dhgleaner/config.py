@@ -2,7 +2,7 @@
 
 合并顺序（后者覆盖前者）：
 
-1. 包内 `dhjournal/defaults/config.json`（只读，密钥字段为空串）
+1. 包内 `dhgleaner/defaults/config.json`（只读，密钥字段为空串）
 2. `<数据目录>/config.json`
 3. `<数据目录>/config.local.json`（用户在模板基础上粘贴自己的 Zotero 凭据）
 4. 环境变量 `ZOTERO_LIBRARY_ID` / `ZOTERO_WEB_LIBRARY_ID`、
@@ -117,8 +117,8 @@ def credentialHint() -> str:
     """未配置凭据时给用户的操作指引（文案里不出现「申请 / 领取」字样）。"""
     paths = getPaths()
     return (
-        "运行 `dhjournal init` 可交互式录入凭据并测试连接；"
+        "运行 `dhgleaner init` 可交互式录入凭据并测试连接；"
         f"或把密钥模板复制为 {paths.configLocalPath}，"
         "粘贴你自己的 Zotero library ID 与 API key 后保存"
-        "（`dhjournal doctor` 可查看期望路径与模板路径）。"
+        "（`dhgleaner doctor` 可查看期望路径与模板路径）。"
     )

@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 from typing import Iterator
 
-from dhjournal import paths as paths_module
+from dhgleaner import paths as paths_module
 
 
 @contextlib.contextmanager

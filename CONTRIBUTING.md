@@ -26,8 +26,8 @@
 ## 开发环境
 
 ```bash
-git clone https://github.com/boringhxy/dh-journal-agent.git
-cd dh-journal-agent
+git clone https://github.com/boringhxy/dh-gleaner.git
+cd dh-gleaner
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev,mcp]"
@@ -53,8 +53,8 @@ python -B -m unittest discover -s tests -v
 ## 代码风格
 
 - 跟随现有结构：业务逻辑在 `service.py` 及同级模块，CLI 只负责解析参数与打印，MCP 层只负责包装与错误分类。
-- `dhjournal/mcp/` 下**禁止** `print`——MCP 用 stdout 传 JSON-RPC，一行打印就会损坏协议。这条由 ruff 的 `T20` 规则强制。
-- 面向用户的文案统一使用 `dhjournal` 入口，不要写回 `python main.py`。
+- `dhgleaner/mcp/` 下**禁止** `print`——MCP 用 stdout 传 JSON-RPC，一行打印就会损坏协议。这条由 ruff 的 `T20` 规则强制。
+- 面向用户的文案统一使用 `dhgleaner` 入口，不要写回 `python main.py`。
 - 提交信息用中文或英文均可，保持一事一提交。
 
 ## 提交 Pull Request

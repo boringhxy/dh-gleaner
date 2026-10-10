@@ -12,22 +12,22 @@
 
 ### 新增
 
-- **命令行工具 `dhjournal`**，十个子命令：`doctor`、`capture`、`capture-channel`、`review`、`abstract`、`export-review`、`screen`、`import`、`init`、`init-collections`。
+- **命令行工具 `dhgleaner`**，十个子命令：`doctor`、`capture`、`capture-channel`、`review`、`abstract`、`export-review`、`screen`、`import`、`init`、`init-collections`。
 - **三种抓取模式**：按期次、按栏目跨期全量、按手动目录页 URL。
 - **筛选流程**：按编号选择、按题名匹配并确认、导出 Excel 勾选、筛选篮逐步收集。
 - **Zotero 集成**：通过 Web API 读写，支持复用既有 Collection、按刊物映射目录、导入报告。
 - **PDF 降级**：下载、校验并挂载；失败或被拦截时降级为记录链接与原因，不阻断条目导入。
 - **抓取质量校验**：识别导航页、广告页、重复标题、期次解析异常等情形，标记为 `suspect` 且不覆盖旧清单。
 - **MCP 服务端**，暴露 13 个工具（8 只读 / 4 写本地 / 1 写 Zotero）。写 Zotero 的工具默认拒绝，需要同时给出 `confirm=true` 与 `dryRun=false`。
-- **数据目录四级解析**：`--data-dir` > `DHJOURNAL_DATA_DIR` > 当前目录 legacy 布局 > `~/.dhjournal`。
-- **`dhjournal init` 初始化向导**：交互式录入 Zotero 凭据 → 测试连接 → 可选补齐 Collection 目录 → 环境自检。非交互环境（MCP、CI、管道）自动降级为打印手动配置步骤，不阻塞提问。
-- **`dhjournal init-collections` 显式建目录命令**：默认只读预览各刊 Collection 缺哪些层级，加 `--yes` 才真正写入 Zotero；可用 `--journal` 限定单刊。导入流程本身仍不会擅自建目录。
+- **数据目录四级解析**：`--data-dir` > `DHGLEANER_DATA_DIR` > 当前目录 legacy 布局 > `~/.dhgleaner`。
+- **`dhgleaner init` 初始化向导**：交互式录入 Zotero 凭据 → 测试连接 → 可选补齐 Collection 目录 → 环境自检。非交互环境（MCP、CI、管道）自动降级为打印手动配置步骤，不阻塞提问。
+- **`dhgleaner init-collections` 显式建目录命令**：默认只读预览各刊 Collection 缺哪些层级，加 `--yes` 才真正写入 Zotero；可用 `--journal` 限定单刊。导入流程本身仍不会擅自建目录。
 - **可安装包**：`pip install -e .` 后可在任意目录使用；另有 `[mcp]` 与 `[dev]` 两个可选依赖组。
 - MIT 许可证，随附 `config.local.example.json` 凭据模板。
 
 ### 变更
 
-- **默认配置单一真源**：移除仓库根与包内内容重复的 `config.json`，默认配置只保留 `dhjournal/defaults/config.json` 一处（随 `dhjournal` 包发布，CI 已校验 wheel 内含该文件）。运行时行为不变——`loadConfig()` 本就以包内默认为基线；如需个性化，仍可在数据目录放一个 `config.json` 覆盖，凭据依旧只写 `config.local.json`。
+- **默认配置单一真源**：移除仓库根与包内内容重复的 `config.json`，默认配置只保留 `dhgleaner/defaults/config.json` 一处（随 `dhgleaner` 包发布，CI 已校验 wheel 内含该文件）。运行时行为不变——`loadConfig()` 本就以包内默认为基线；如需个性化，仍可在数据目录放一个 `config.json` 覆盖，凭据依旧只写 `config.local.json`。
 
 ### 移除
 
@@ -58,5 +58,5 @@
 - 抓取失败时命令行的退出码仍为 0。
 - `state.json` 没有归档或裁剪机制，长期使用会持续增长。
 
-[Unreleased]: https://github.com/boringhxy/dh-journal-agent/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/boringhxy/dh-journal-agent/releases/tag/v0.1.0
+[Unreleased]: https://github.com/boringhxy/dh-gleaner/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/boringhxy/dh-gleaner/releases/tag/v0.1.0

@@ -6,22 +6,22 @@ import unittest
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-import dhjournal.capture as capture_module
-import dhjournal.cli as main_module
-import dhjournal.importer as importer_module
-from dhjournal import paths as paths_module
-from dhjournal.capture import assessCaptureQuality, resolveIssueUrl
-from dhjournal.importer import importArticles
-from dhjournal.models import Article, IssueInfo
-from dhjournal.presenter import applySelection, renderCatalog
-from dhjournal.review_spreadsheet import (
+import dhgleaner.capture as capture_module
+import dhgleaner.cli as main_module
+import dhgleaner.importer as importer_module
+from dhgleaner import paths as paths_module
+from dhgleaner.capture import assessCaptureQuality, resolveIssueUrl
+from dhgleaner.importer import importArticles
+from dhgleaner.models import Article, IssueInfo
+from dhgleaner.presenter import applySelection, renderCatalog
+from dhgleaner.review_spreadsheet import (
     SpreadsheetValidationError,
     exportReviewSpreadsheet,
     loadSpreadsheetSelection,
     pendingFingerprint,
 )
-from dhjournal.state import StateManager
-from dhjournal.title_matcher import (
+from dhgleaner.state import StateManager
+from dhgleaner.title_matcher import (
     allTitleMatchesConfirmed,
     articlesFromTitleMatches,
     matchTitlesToArticles,
@@ -30,16 +30,16 @@ from dhjournal.title_matcher import (
     renderTitleMatchReport,
     selectionStringFromTitleMatches,
 )
-from dhjournal.zotero_client import ZoteroClient
+from dhgleaner.zotero_client import ZoteroClient
 
 try:
     from .helpers import pendingPayload, tempDataDir, writePending
 except ImportError:  # 直接以脚本方式运行时
     from helpers import pendingPayload, tempDataDir, writePending
-from dhjournal.parsers.cnki_cbpt import CnkiCbptParser
-from dhjournal.parsers.generic_html import GenericHtmlParser
-from dhjournal.parsers.journy3 import Journy3Parser
-from dhjournal.parsers.magtech import MagtechParser
+from dhgleaner.parsers.cnki_cbpt import CnkiCbptParser
+from dhgleaner.parsers.generic_html import GenericHtmlParser
+from dhgleaner.parsers.journy3 import Journy3Parser
+from dhgleaner.parsers.magtech import MagtechParser
 
 UA = "Mozilla/5.0"
 HTTP_CFG = {"userAgent": UA, "timeout": 30, "maxRetries": 3, "retryInterval": 10}

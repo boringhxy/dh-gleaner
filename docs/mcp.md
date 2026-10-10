@@ -4,7 +4,7 @@
 
 ```bash
 pip install -e ".[mcp]"
-dhjournal-mcp        # 以 stdio 运行 MCP 服务端
+dhgleaner-mcp        # 以 stdio 运行 MCP 服务端
 ```
 
 客户端配置：
@@ -12,14 +12,14 @@ dhjournal-mcp        # 以 stdio 运行 MCP 服务端
 ```json
 {
   "mcpServers": {
-    "dh-journal-agent": {
-      "command": "dhjournal-mcp"
+    "dh-gleaner": {
+      "command": "dhgleaner-mcp"
     }
   }
 }
 ```
 
-数据目录解析规则与命令行一致（`--data-dir` 不适用于 MCP；用 `DHJOURNAL_DATA_DIR` 环境变量指定）。几乎所有工具都会在返回值里带上 `dataDir`、`dataDirSource`、`configLocalPath`，便于客户端确认自己在读写哪个目录。
+数据目录解析规则与命令行一致（`--data-dir` 不适用于 MCP；用 `DHGLEANER_DATA_DIR` 环境变量指定）。几乎所有工具都会在返回值里带上 `dataDir`、`dataDirSource`、`configLocalPath`，便于客户端确认自己在读写哪个目录。
 
 ## 返回契约
 

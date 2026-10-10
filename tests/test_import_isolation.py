@@ -21,9 +21,9 @@ try:
 except ImportError:  # 直接以脚本方式运行时
     from helpers import pendingPayload, tempDataDir, writePending
 
-import dhjournal.service as service_module
-from dhjournal import paths as paths_module
-from dhjournal.service import loadPending, runImport
+import dhgleaner.service as service_module
+from dhgleaner import paths as paths_module
+from dhgleaner.service import loadPending, runImport
 
 UA = "Mozilla/5.0"
 

@@ -15,9 +15,9 @@ import json
 import unittest
 from pathlib import Path
 
-import dhjournal.cli as cli_module
-from dhjournal.config import loadConfig
-from dhjournal.service import (
+import dhgleaner.cli as cli_module
+from dhgleaner.config import loadConfig
+from dhgleaner.service import (
     CollectionPlanRow,
     CollectionsReport,
     ensureCollections,

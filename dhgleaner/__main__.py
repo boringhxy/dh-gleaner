@@ -1,4 +1,4 @@
-"""`python -m dhjournal` 入口。"""
+"""`python -m dhgleaner` 入口。"""
 
 from __future__ import annotations
 

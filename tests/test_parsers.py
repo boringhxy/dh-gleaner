@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import unittest
 
-from dhjournal.parsers.cnki_cbpt import CnkiCbptParser
-from dhjournal.parsers.journy3 import Journy3Parser
+from dhgleaner.parsers.cnki_cbpt import CnkiCbptParser
+from dhgleaner.parsers.journy3 import Journy3Parser
 
 UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "

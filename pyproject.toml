@@ -3,7 +3,7 @@ requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
 
 [project]
-name = "dh-journal-agent"
+name = "dh-gleaner"
 version = "0.1.0"
 description = "按刊按期巡检中文期刊目录页，人工筛选后再写入 Zotero 的文献采集工具"
 readme = "README.md"
@@ -37,20 +37,20 @@ mcp = ["mcp>=2.0.0"]
 dev = ["ruff>=0.6.0"]
 
 [project.scripts]
-dhjournal = "dhjournal.cli:main"
-dhjournal-mcp = "dhjournal.mcp.server:main"
+dhgleaner = "dhgleaner.cli:main"
+dhgleaner-mcp = "dhgleaner.mcp.server:main"
 
 [project.urls]
-Homepage = "https://github.com/boringhxy/dh-journal-agent"
-Repository = "https://github.com/boringhxy/dh-journal-agent"
-Issues = "https://github.com/boringhxy/dh-journal-agent/issues"
+Homepage = "https://github.com/boringhxy/dh-gleaner"
+Repository = "https://github.com/boringhxy/dh-gleaner"
+Issues = "https://github.com/boringhxy/dh-gleaner/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["dhjournal"]
+packages = ["dhgleaner"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-  "dhjournal",
+  "dhgleaner",
   "tests",
   "docs",
   "main.py",
@@ -79,9 +79,9 @@ ignore = ["E501"]
 [tool.ruff.lint.per-file-ignores]
 # 终端界面本来就是用来 print 的；MCP 层（未被豁免）一律禁止 print，
 # 因为 MCP 用 stdout 传 JSON-RPC，一行 print 就会损坏协议。
-"dhjournal/cli.py" = ["T201"]
-"dhjournal/logging_setup.py" = ["T201"]
+"dhgleaner/cli.py" = ["T201"]
+"dhgleaner/logging_setup.py" = ["T201"]
 "tests/*" = ["T201"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["dhjournal"]
+known-first-party = ["dhgleaner"]

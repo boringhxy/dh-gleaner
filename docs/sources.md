@@ -2,7 +2,7 @@
 
 ## 设计原则
 
-- 能用配置表达的差异，优先写进 `dhjournal/defaults/config.json`。
+- 能用配置表达的差异，优先写进 `dhgleaner/defaults/config.json`。
 - 只有页面结构明显不同、通用解析器确实不够时，才新增专用 parser。
 - 所有解析器输出统一的 `Article` 对象。
 - 不针对某个具体年份、卷号或期号写死逻辑；历史期定位应由模板、卷号规则或过刊页解析支持。
@@ -84,7 +84,7 @@
 
 1. 判断来源类型：期次页、栏目页、公告页，还是平台检索页。
 2. 先尝试用现有 parser 加配置表达差异。
-3. 补充 `dhjournal/defaults/config.json`：站点、当前期 URL、过刊页、历史 URL 模板、栏目来源、PDF 策略、Zotero Collection 映射。
+3. 补充 `dhgleaner/defaults/config.json`：站点、当前期 URL、过刊页、历史 URL 模板、栏目来源、PDF 策略、Zotero Collection 映射。
 4. 增加样例 HTML 的单元测试，覆盖期次定位、文章抽取与质量校验。
 5. 做真实冒烟测试时，先备份再恢复你现有的 `pending.json` / `review.md` —— 或者更稳妥地用一个临时的数据目录（`--data-dir`）。
 

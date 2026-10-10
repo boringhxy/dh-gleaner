@@ -13,15 +13,15 @@
   -> PDF 可下载则挂载，否则记录链接与原因
 ```
 
-> 首次使用：抓取与筛选无需任何凭据，可直接开始。等到要写入 Zotero 时，先运行 `dhjournal init` 录入你自己的凭据（必要时再用 `dhjournal init-collections --yes` 补齐目录）。
+> 首次使用：抓取与筛选无需任何凭据，可直接开始。等到要写入 Zotero 时，先运行 `dhgleaner init` 录入你自己的凭据（必要时再用 `dhgleaner init-collections --yes` 补齐目录）。
 
 ## 工作流 A：期次抓取
 
 适用：查看某刊某年某期的文章目录。
 
 ```bash
-dhjournal capture --journal "期刊名" --year x --issue x
-dhjournal capture --journal "期刊名" --year x --volume x --issue x   # 需要卷号时
+dhgleaner capture --journal "期刊名" --year x --issue x
+dhgleaner capture --journal "期刊名" --year x --volume x --issue x   # 需要卷号时
 ```
 
 输入：
@@ -41,7 +41,7 @@ dhjournal capture --journal "期刊名" --year x --volume x --issue x   # 需要
 适用：目标是一个跨期栏目，而不是单一期次。
 
 ```bash
-dhjournal capture-channel --journal "图书馆杂志" --channel "数字人文"
+dhgleaner capture-channel --journal "图书馆杂志" --channel "数字人文"
 ```
 
 要求：
@@ -56,7 +56,7 @@ dhjournal capture-channel --journal "图书馆杂志" --channel "数字人文"
 适用：官方公告页、微信目录页、Airiti/TADH 页面，以及你自己整理的目录页。
 
 ```bash
-dhjournal capture --journal "期刊名" --url "目录页URL"
+dhgleaner capture --journal "期刊名" --url "目录页URL"
 ```
 
 要求：
@@ -68,20 +68,20 @@ dhjournal capture --journal "期刊名" --url "目录页URL"
 ## 筛选与导入
 
 ```bash
-dhjournal review                        # 重新显示最近一次清单
-dhjournal abstract --index x            # 查看某一篇的完整摘要
-dhjournal export-review                 # 导出 Excel 勾选表
-dhjournal import --selection "1,3,5"    # 按编号导入
-dhjournal import --selection "都不要"    # 本批全部跳过
+dhgleaner review                        # 重新显示最近一次清单
+dhgleaner abstract --index x            # 查看某一篇的完整摘要
+dhgleaner export-review                 # 导出 Excel 勾选表
+dhgleaner import --selection "1,3,5"    # 按编号导入
+dhgleaner import --selection "都不要"    # 本批全部跳过
 ```
 
 筛选篮适合边看边收：
 
 ```bash
-dhjournal screen --list
-dhjournal screen --search "关键词"
-dhjournal screen --add "1,3-5"
-dhjournal screen --import
+dhgleaner screen --list
+dhgleaner screen --search "关键词"
+dhgleaner screen --add "1,3-5"
+dhgleaner screen --import
 ```
 
 ## 异常流程
@@ -91,8 +91,8 @@ dhjournal screen --import
 | 目标期次自动定位失败 | 提示改用 `--url`，并尽量给出推测的目录 URL |
 | 网络失败 | 不覆盖旧清单，记录失败状态 |
 | 页面质量可疑 | 标记 `suspect`，不覆盖旧清单 |
-| Zotero Collection 缺失 | 导入前中止，提示运行 `dhjournal init-collections --yes` 补齐或手动创建目录 |
-| Zotero 凭据未配置 | 导入前中止，**不写任何本地文件**，提示运行 `dhjournal init` 录入凭据 |
+| Zotero Collection 缺失 | 导入前中止，提示运行 `dhgleaner init-collections --yes` 补齐或手动创建目录 |
+| Zotero 凭据未配置 | 导入前中止，**不写任何本地文件**，提示运行 `dhgleaner init` 录入凭据 |
 | PDF 下载或上传失败 | 保留 Zotero 条目，记录 PDF 链接与失败原因 |
 
 失败的返回信息会包含：失败的期刊与目标、失败所处的阶段（定位 / 下载 / 解析 / 质量校验 / Zotero 导入 / PDF 挂载）、旧清单是否保留、以及下一步建议。

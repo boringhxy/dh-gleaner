@@ -7,7 +7,7 @@ CLI 的 `cmdXxx` 与 MCP 的工具函数都调用这一层，所以这里必须�
 2. **不抛 SystemExit**：输入校验交给 `validation`，失败抛 `ValidationError`。
 
 数据产物（pending.json / review.md / state.json / 备份）的路径一律经 `paths.getPaths()`，
-因此「项目根 legacy 模式」与「装到 ~/.dhjournal」两种情形行为一致。
+因此「项目根 legacy 模式」与「装到 ~/.dhgleaner」两种情形行为一致。
 """
 
 from __future__ import annotations

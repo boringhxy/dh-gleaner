@@ -3,8 +3,8 @@
 ## 环境
 
 ```bash
-git clone https://github.com/boringhxy/dh-journal-agent.git
-cd dh-journal-agent
+git clone https://github.com/boringhxy/dh-gleaner.git
+cd dh-gleaner
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev,mcp]"
@@ -15,7 +15,7 @@ pip install -e ".[dev,mcp]"
 ## 目录结构
 
 ```text
-dhjournal/
+dhgleaner/
 ├── cli.py              命令行入口：解析参数 -> 调 service -> 打印
 ├── service.py          业务编排层：只返回数据，不打印、不抛 SystemExit
 ├── capture.py          抓取主流程与质量校验
@@ -70,7 +70,7 @@ ruff check .
 
 真实抓取会覆盖当前待筛数据，所以冒烟测试必须保护现场：
 
-1. 优先用临时数据目录：`dhjournal --data-dir /tmp/dhj-smoke capture …`，或设 `DHJOURNAL_DATA_DIR`。
+1. 优先用临时数据目录：`dhgleaner --data-dir /tmp/dhj-smoke capture …`，或设 `DHGLEANER_DATA_DIR`。
 2. 若必须用默认数据目录，先记录 `data/pending.json` 与 `data/review.md` 的校验和。
 3. 跑目标抓取，检查文章数、标题质量、期次显示、摘要与 PDF 链接。
 4. 测试完成后恢复原待筛文件，除非你明确要保留本次结果。
@@ -87,7 +87,7 @@ ruff check .
 - `pending.json` 的 schema 文档未过期。
 - 仓库中不含 `config.local.json` 的真实内容。
 - 新增 parser 或配置有对应测试。
-- 构建出的 wheel 不含内部文档，且带有 `dhjournal/defaults/` 与 `dhjournal/mcp/`。
+- 构建出的 wheel 不含内部文档，且带有 `dhgleaner/defaults/` 与 `dhgleaner/mcp/`。
 
 ## 打包
 

@@ -114,7 +114,7 @@ def exportReviewSpreadsheet(
     instructions = [
         ["说明", "在“筛选”页的“是否导入”列选择“是”的文章会被导入 Zotero。"],
         ["注意", "不要修改编号和题名；导入时会校验表格是否对应当前 pending.json。"],
-        ["导入命令", "dhjournal import --spreadsheet data/review_selection.xlsx"],
+        ["导入命令", "dhgleaner import --spreadsheet data/review_selection.xlsx"],
     ]
     metaRows = [["字段", "值"], *metadata]
 

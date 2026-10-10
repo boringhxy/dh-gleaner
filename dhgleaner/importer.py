@@ -107,7 +107,7 @@ def importArticlesDetailed(
     if not zotero.testConnection():
         lines.append("## ⚠️ Zotero 连接失败\n")
         lines.append("请确认网络可用，且你自己的 Zotero 凭据已配置到 config.local.json（webLibraryId / webApiKey）。")
-        lines.append("下一步：运行 `dhjournal init` 交互式录入凭据并测试连接；或 `dhjournal doctor --zotero` 查看期望路径与密钥模板路径。")
+        lines.append("下一步：运行 `dhgleaner init` 交互式录入凭据并测试连接；或 `dhgleaner doctor --zotero` 查看期望路径与密钥模板路径。")
         return ImportSummary(
             report="\n".join(lines), attempted=len(articles),
             aborted=True, abortReason="Zotero 连接失败，未写入任何条目",
@@ -131,7 +131,7 @@ def importArticlesDetailed(
             lines.append(f"- 《{journalName}》")
         lines.append("")
         lines.append("下一步（二选一）：")
-        lines.append("1. 运行 `dhjournal init-collections` 预览缺失目录，确认无误后加 `--yes` 自动补齐；")
+        lines.append("1. 运行 `dhgleaner init-collections` 预览缺失目录，确认无误后加 `--yes` 自动补齐；")
         lines.append("2. 或手动在 Zotero 里建好上述目录，再重新运行本次导入。")
         lines.append("（若希望导入时自动补目录，可把配置 zotero.autoCreateCollection 设为 true。）")
         return ImportSummary(

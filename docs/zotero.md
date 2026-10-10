@@ -19,7 +19,7 @@
 
 - 默认**不自动创建** Collection。
 - Zotero 中应提前存在根目录与各期刊目录。
-- 想批量补齐缺失目录，用显式命令 `dhjournal init-collections`：默认只读预览缺哪些层级，加 `--yes` 才真正创建（`--journal` 可限定单刊）。这条命令与「导入时不擅自建目录」的红线互不影响。
+- 想批量补齐缺失目录，用显式命令 `dhgleaner init-collections`：默认只读预览缺哪些层级，加 `--yes` 才真正创建（`--journal` 可限定单刊）。这条命令与「导入时不擅自建目录」的红线互不影响。
 - 导入时根据 `config.json` 的 `collectionPath` 与 `journalCollections` 定位目标目录。
 - Collection 读取支持分页，避免目录数量超过 100 时漏查。
 - 查重（`checkDuplicate`）同样翻页扫描并归一化比较标题，命中项多时不漏判。
@@ -73,8 +73,8 @@ Extra 会记录：
 
 | 场景 | 处理 |
 |------|------|
-| Zotero 配置缺失 | `dhjournal init` 交互式录入凭据；或 `doctor --zotero` 报出期望的配置文件路径与模板路径 |
-| Collection 找不到 | 不导入，提示运行 `dhjournal init-collections --yes` 补齐目录，或手动在 Zotero 中创建 |
+| Zotero 配置缺失 | `dhgleaner init` 交互式录入凭据；或 `doctor --zotero` 报出期望的配置文件路径与模板路径 |
+| Collection 找不到 | 不导入，提示运行 `dhgleaner init-collections --yes` 补齐目录，或手动在 Zotero 中创建 |
 | 文章重复 | 跳过或复用已有记录，写入导入报告 |
 | PDF 上传失败 | 条目保留，Extra 记录失败原因 |
 | 部分文章失败 | 不影响其他选中文章的导入 |

@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from dhjournal import paths
+from dhgleaner import paths
 
 
 class ResolveDataDirTests(unittest.TestCase):

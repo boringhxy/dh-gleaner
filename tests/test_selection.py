@@ -14,8 +14,8 @@ try:
 except ImportError:  # 直接以脚本方式运行时
     from helpers import tempDataDir
 
-from dhjournal.models import STATUS_PRESENTED, STATUS_SELECTED, Article
-from dhjournal.selection import (
+from dhgleaner.models import STATUS_PRESENTED, STATUS_SELECTED, Article
+from dhgleaner.selection import (
     STATUS_EMPTY,
     STATUS_INVALID,
     STATUS_NEEDS_CONFIRM,
@@ -28,8 +28,8 @@ from dhjournal.selection import (
     resolveByTitlesFromList,
     resolveSkipAll,
 )
-from dhjournal.selection_basket import loadBasket, pendingFingerprint
-from dhjournal.service import (
+from dhgleaner.selection_basket import loadBasket, pendingFingerprint
+from dhgleaner.service import (
     loadCaptureStatus,
     loadPending,
     previewArticles,
@@ -38,7 +38,7 @@ from dhjournal.service import (
     stateManager,
     writeTextArtifact,
 )
-from dhjournal.validation import ValidationError, buildTarget, isSkipToken, normalizeJournalName
+from dhgleaner.validation import ValidationError, buildTarget, isSkipToken, normalizeJournalName
 
 
 def makeArticles(titles: list[str]) -> list[Article]:

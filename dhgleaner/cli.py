@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""数字人文期刊捕获 Agent — CLI 入口。
+"""数字人文期刊采集器 — CLI 入口。
 
 三阶段工作流：
   1. capture  — 按用户指定年期捕获期刊文章
@@ -7,10 +7,10 @@
   3. import   — 导入用户确认的文章到 Zotero
 
 用法:
-  dhjournal capture --journal 图书馆论坛 --year 2026 --issue 3
-  dhjournal export-review                     # 导出 Excel 筛选表
-  dhjournal import --selection "1,3,5"        # 只导入选中编号
-  dhjournal abstract --index 2                # 查看某篇摘要
+  dhgleaner capture --journal 图书馆论坛 --year 2026 --issue 3
+  dhgleaner export-review                     # 导出 Excel 筛选表
+  dhgleaner import --selection "1,3,5"        # 只导入选中编号
+  dhgleaner abstract --index 2                # 查看某篇摘要
 
 本模块只负责「解析参数 → 调 service → 打印给人看」。
 业务逻辑在 service / selection / validation，MCP 工具复用同一套。
@@ -116,7 +116,7 @@ def saveTextArtifact(path: Path, content: str, label: str) -> bool:
 
 def cmdDoctor(args, cfg):
     """检查 agent 的真实运行条件。"""
-    print("# 数字人文期刊捕获 Agent 自检\n")
+    print("# 数字人文期刊采集器 自检\n")
     report = collectDoctorChecks(cfg, checkZotero=args.zotero, checkNetwork=args.network)
     for check in report.checks:
         _ok(check.label, check.ok, check.detail)
@@ -163,7 +163,7 @@ def cmdInitCollections(args, cfg):
 
     if not getattr(args, "yes", False):
         print("\n以上「待创建」目录尚未写入 Zotero（本命令默认只预览）。")
-        print("确认无误后运行：dhjournal init-collections --yes")
+        print("确认无误后运行：dhgleaner init-collections --yes")
         if journals:
             print(f"（当前只针对：{'、'.join(journals)}）")
         return
@@ -186,7 +186,7 @@ def cmdInit(args, cfg):
     非交互环境下不阻塞提问，只打印手动配置步骤并跑一次自检。
     """
     paths = getPaths()
-    print("# 数字人文期刊捕获 Agent — 初始化引导\n")
+    print("# 数字人文期刊采集器 — 初始化引导\n")
     print(f"数据目录: {paths.dataDir}（来源: {paths.describeSource()}）")
     print(f"凭据只写入: {paths.configLocalPath}（不会提交、不会上传、不回显）\n")
 
@@ -194,7 +194,7 @@ def cmdInit(args, cfg):
         print("检测到非交互环境，跳过输入式引导。请手动完成配置：")
         print(f"  1) 把模板 {configTemplatePath()} 复制为 {paths.configLocalPath}，填入你自己的 Zotero 凭据；或")
         print("  2) 设置环境变量 ZOTERO_LIBRARY_ID 与 ZOTERO_API_KEY；然后")
-        print("  运行 `dhjournal doctor --zotero` 验证连接。")
+        print("  运行 `dhgleaner doctor --zotero` 验证连接。")
         _printDoctorSummary(cfg)
         return
 
@@ -208,7 +208,7 @@ def cmdInit(args, cfg):
             libraryId = input("Zotero 用户/库 ID（个人库为纯数字）: ").strip()
             apiKey = getpass.getpass("Zotero API key（输入不回显）: ").strip()
         except (EOFError, KeyboardInterrupt):
-            print("\n已取消，未写入任何凭据。稍后可重新运行 `dhjournal init`。")
+            print("\n已取消，未写入任何凭据。稍后可重新运行 `dhgleaner init`。")
             return
         if not libraryId or not apiKey:
             print("⚠️ 两项都必填，已放弃写入。")
@@ -222,7 +222,7 @@ def cmdInit(args, cfg):
 
     print("\n测试 Zotero 连接...")
     if not ZoteroClient(cfg.get("zotero", {})).testConnection():
-        print("⚠️ 连接失败。请核对凭据与网络后重跑 `dhjournal doctor --zotero`。")
+        print("⚠️ 连接失败。请核对凭据与网络后重跑 `dhgleaner doctor --zotero`。")
         return
     print("✅ Zotero 连接正常。")
 
@@ -240,12 +240,12 @@ def cmdInit(args, cfg):
             created, _ = ensureCollections(cfg)
             print(f"✅ 已新建 {len(created)} 个目录：{' / '.join(created)}" if created else "未新建任何目录。")
         else:
-            print("已跳过。稍后可运行 `dhjournal init-collections --yes` 创建。")
+            print("已跳过。稍后可运行 `dhgleaner init-collections --yes` 创建。")
     else:
         print("\n✅ 所有期刊 Collection 目录已就绪。")
 
     _printDoctorSummary(cfg)
-    print("\n下一步示例：dhjournal capture --journal 图书馆论坛 --year 2026 --issue 3")
+    print("\n下一步示例：dhgleaner capture --journal 图书馆论坛 --year 2026 --issue 3")
 
 
 def cmdCapture(args, cfg):
@@ -277,7 +277,7 @@ def cmdCapture(args, cfg):
         print(f"\n--- 共捕获 {outcome.articleCount} 篇文章，筛选清单已保存到 {paths.review}，待导入数据已保存到 {paths.pending} ---")
         if outcome.backups:
             print(f"已自动备份旧筛选数据: {'；'.join(str(path) for path in outcome.backups)}")
-        print('本阶段不会导入 Zotero，也不会下载 PDF。请先阅读筛选清单，再用 `dhjournal import --selection "编号"` 只导入需要的文章。')
+        print('本阶段不会导入 Zotero，也不会下载 PDF。请先阅读筛选清单，再用 `dhgleaner import --selection "编号"` 只导入需要的文章。')
     elif outcome.status == "suspect":
         print(f"\n--- ⚠️ 本次抓取疑似误抓，未覆盖原有筛选清单: {paths.review} ---")
         print(f"原因: {outcome.reason}")
@@ -285,7 +285,7 @@ def cmdCapture(args, cfg):
     else:
         print(f"\n--- ⚠️ 本次未捕获到文章，已保留原有筛选清单: {paths.review} ---")
         print(f"⚠️ 当前 review.md 仍是上一次成功捕获的旧内容；本次失败状态已写入 {paths.captureStatus}")
-        print("如目标期次网页可直接访问，请重试：dhjournal capture --journal 期刊名 --url 目录页URL")
+        print("如目标期次网页可直接访问，请重试：dhgleaner capture --journal 期刊名 --url 目录页URL")
 
 
 def cmdCaptureChannel(args, cfg):
@@ -330,7 +330,7 @@ def cmdReview(args, cfg):
     """重新显示最近一次捕获的筛选清单。"""
     markdown, articles = loadPending()
     if not articles:
-        print("没有待筛选的文章。请先运行 `dhjournal capture --journal 期刊名 --year 年份 --issue 期号`。")
+        print("没有待筛选的文章。请先运行 `dhgleaner capture --journal 期刊名 --year 年份 --issue 期号`。")
         return
     print(markdown)
 
@@ -353,7 +353,7 @@ def cmdExportReview(args, cfg):
     exportReviewSpreadsheet(output, articles, pending)
     print(f"Excel 筛选表已保存到 {output}")
     print("打开表格后，在“筛选”页的“是否导入”列选择“是”；筛完后运行：")
-    print(f'dhjournal import --spreadsheet "{output}"')
+    print(f'dhgleaner import --spreadsheet "{output}"')
 
 
 def cmdScreen(args, cfg):
@@ -397,7 +397,7 @@ def cmdScreen(args, cfg):
         else:
             print("未匹配到文章。")
         print("")
-        print('可继续运行：dhjournal screen --add "编号"')
+        print('可继续运行：dhgleaner screen --add "编号"')
         return
 
     if args.list:
@@ -405,7 +405,7 @@ def cmdScreen(args, cfg):
         print("")
         print(renderArticleRows(articles, basket.indexes))
         print("")
-        print('可继续运行：dhjournal screen --add "1,3-5" 或 --search "关键词"')
+        print('可继续运行：dhgleaner screen --add "1,3-5" 或 --search "关键词"')
         return
 
     if args.import_selected:
@@ -425,7 +425,7 @@ def cmdAbstract(args, cfg):
     """查看某篇文章的摘要。"""
     _, articles = loadPending()
     if not articles:
-        print("没有待查看的文章。请先运行 `dhjournal capture`。")
+        print("没有待查看的文章。请先运行 `dhgleaner capture`。")
         return
     article = getArticleByIndex(articles, args.index)
     if not article:
@@ -479,7 +479,7 @@ def cmdImport(args, cfg):
     pending = loadPendingData()
     markdown, articles = loadPending()
     if not articles:
-        print("没有待导入的文章。请先运行 `dhjournal capture`。")
+        print("没有待导入的文章。请先运行 `dhgleaner capture`。")
         return
 
     try:
@@ -497,7 +497,7 @@ def cmdImport(args, cfg):
         return
     if outcome.status == STATUS_TITLE_CONFIRM_REQUIRED:
         print(f"\n{outcome.message}")
-        print(f'如确认无误，可运行：dhjournal import --selection "{outcome.selectionHint}"')
+        print(f'如确认无误，可运行：dhgleaner import --selection "{outcome.selectionHint}"')
         print("或在当前题名命令后追加 --confirm-titles，按你给出的题名顺序导入。")
         return
     if outcome.status == STATUS_SKIP_ALL:
@@ -531,10 +531,10 @@ def cmdImport(args, cfg):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="数字人文期刊捕获 Agent",
+        description="数字人文期刊采集器",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    dataDirHelp = "覆盖数据目录（单次生效）；未指定时依次取 DHJOURNAL_DATA_DIR、当前目录、~/.dhjournal"
+    dataDirHelp = "覆盖数据目录（单次生效）；未指定时依次取 DHGLEANER_DATA_DIR、当前目录、~/.dhgleaner"
     parser.add_argument("--data-dir", help=dataDirHelp)
     sub = parser.add_subparsers(dest="command", help="子命令")
 

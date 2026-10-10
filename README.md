@@ -1,4 +1,4 @@
-# 数字人文期刊捕获 Agent
+# 数字人文期刊采集器
 
 [English](README.en.md) | **简体中文**
 
@@ -29,41 +29,41 @@
 需要 Python 3.10 或更高版本。
 
 ```bash
-git clone https://github.com/boringhxy/dh-journal-agent.git
-cd dh-journal-agent
+git clone https://github.com/boringhxy/dh-gleaner.git
+cd dh-gleaner
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
 ```
 
-装好后会得到命令行入口 `dhjournal`。想让 AI 客户端（Claude Desktop、Cherry Studio 等）直接调用，再装上 MCP 额外依赖：
+装好后会得到命令行入口 `dhgleaner`。想让 AI 客户端（Claude Desktop、Cherry Studio 等）直接调用，再装上 MCP 额外依赖：
 
 ```bash
 pip install -e ".[mcp]"
 ```
 
-那会额外提供 `dhjournal-mcp` 入口。不加 `[mcp]` 不影响命令行使用。
+那会额外提供 `dhgleaner-mcp` 入口。不加 `[mcp]` 不影响命令行使用。
 
-> 用 `python -m dhjournal` 与 `dhjournal` 等价；若你没有激活虚拟环境，写成 `./.venv/bin/dhjournal` 也可以。
+> 用 `python -m dhgleaner` 与 `dhgleaner` 等价；若你没有激活虚拟环境，写成 `./.venv/bin/dhgleaner` 也可以。
 
 ## 快速开始
 
 抓取和筛选**不需要任何 Zotero 凭据**，装上就能试：
 
 ```bash
-dhjournal capture --journal "数字人文研究" --year 2026 --volume 6 --issue 2   # 1. 抓当期目录
-dhjournal review                 # 2. 读清单，记下要导入的编号
+dhgleaner capture --journal "数字人文研究" --year 2026 --volume 6 --issue 2   # 1. 抓当期目录
+dhgleaner review                 # 2. 读清单，记下要导入的编号
 ```
 
 要把选中的文章写进 Zotero 时，再配置你自己的凭据：
 
 ```bash
-dhjournal init                        # 3. 交互式录入凭据、测试连接、可选补齐 Collection 目录
-dhjournal import --selection "1,3,5"  # 4. 只导入选中的文章
+dhgleaner init                        # 3. 交互式录入凭据、测试连接、可选补齐 Collection 目录
+dhgleaner import --selection "1,3,5"  # 4. 只导入选中的文章
 ```
 
-`dhjournal init` 把凭据写进数据目录下的 `config.local.json`（不会提交、不会上传、输入不回显）；
-非交互环境下它会打印手动配置步骤而不阻塞。只想先看环境是否就绪，可运行 `dhjournal doctor --zotero`。
+`dhgleaner init` 把凭据写进数据目录下的 `config.local.json`（不会提交、不会上传、输入不回显）；
+非交互环境下它会打印手动配置步骤而不阻塞。只想先看环境是否就绪，可运行 `dhgleaner doctor --zotero`。
 
 ## 命令参考
 
@@ -72,10 +72,10 @@ dhjournal import --selection "1,3,5"  # 4. 只导入选中的文章
 ### 初始化
 
 ```bash
-dhjournal init                   # 交互式引导：录入 Zotero 凭据 → 测试连接 → 可选补齐目录 → 自检
-dhjournal init-collections       # 只读预览：列出各刊 Collection 路径缺哪些层级（不写 Zotero）
-dhjournal init-collections --yes # 确认后真正创建缺失目录
-dhjournal init-collections --journal "图书馆论坛" --yes   # 只补齐指定期刊
+dhgleaner init                   # 交互式引导：录入 Zotero 凭据 → 测试连接 → 可选补齐目录 → 自检
+dhgleaner init-collections       # 只读预览：列出各刊 Collection 路径缺哪些层级（不写 Zotero）
+dhgleaner init-collections --yes # 确认后真正创建缺失目录
+dhgleaner init-collections --journal "图书馆论坛" --yes   # 只补齐指定期刊
 ```
 
 `init-collections` 默认只预览，加 `--yes` 才会写 Zotero；导入流程本身仍不会擅自建目录。
@@ -83,29 +83,29 @@ dhjournal init-collections --journal "图书馆论坛" --yes   # 只补齐指定
 ### 自检
 
 ```bash
-dhjournal doctor                 # 检查依赖、数据目录、配置文件
-dhjournal doctor --zotero        # 额外连接 Zotero，逐个检查期刊 Collection
-dhjournal doctor --network       # 额外做一次网络连通性检查
+dhgleaner doctor                 # 检查依赖、数据目录、配置文件
+dhgleaner doctor --zotero        # 额外连接 Zotero，逐个检查期刊 Collection
+dhgleaner doctor --network       # 额外做一次网络连通性检查
 ```
 
 ### 抓取
 
 | 类型 | 适用场景 | 命令 |
 |------|----------|------|
-| 期次抓取 | 某刊某年某期 | `dhjournal capture --journal "期刊名" --year x --issue x` |
-| 卷期抓取 | 需要精确到卷号时 | `dhjournal capture --journal "期刊名" --year x --volume x --issue x` |
-| 栏目抓取 | 某刊某栏目跨期全量 | `dhjournal capture-channel --journal "图书馆杂志" --channel "数字人文"` |
-| 手动目录页 | 官方公告页、微信目录、Airiti 等不稳定页面 | `dhjournal capture --journal "期刊名" --url "目录页URL"` |
+| 期次抓取 | 某刊某年某期 | `dhgleaner capture --journal "期刊名" --year x --issue x` |
+| 卷期抓取 | 需要精确到卷号时 | `dhgleaner capture --journal "期刊名" --year x --volume x --issue x` |
+| 栏目抓取 | 某刊某栏目跨期全量 | `dhgleaner capture-channel --journal "图书馆杂志" --channel "数字人文"` |
+| 手动目录页 | 官方公告页、微信目录、Airiti 等不稳定页面 | `dhgleaner capture --journal "期刊名" --url "目录页URL"` |
 
 ```bash
-dhjournal capture --journal "数字人文研究" --year x --issue x
-dhjournal capture --journal "数字人文研究" --year x --volume x --issue x
-dhjournal capture --journal "图书馆论坛" --year x --issue x
-dhjournal capture --journal "图书馆杂志" --year x --issue x
-dhjournal capture-channel --journal "图书馆杂志" --channel "数字人文"
-dhjournal capture --journal "中国数字人文" --url "真实目录页URL"
-dhjournal capture --journal "数位典藏与数位人文" --url "真实目录页URL"
-dhjournal capture --all-journals --year x --issue x   # 显式抓取全部已配置期刊
+dhgleaner capture --journal "数字人文研究" --year x --issue x
+dhgleaner capture --journal "数字人文研究" --year x --volume x --issue x
+dhgleaner capture --journal "图书馆论坛" --year x --issue x
+dhgleaner capture --journal "图书馆杂志" --year x --issue x
+dhgleaner capture-channel --journal "图书馆杂志" --channel "数字人文"
+dhgleaner capture --journal "中国数字人文" --url "真实目录页URL"
+dhgleaner capture --journal "数位典藏与数位人文" --url "真实目录页URL"
+dhgleaner capture --all-journals --year x --issue x   # 显式抓取全部已配置期刊
 ```
 
 不指定期刊的 `capture --year x --issue x` 会被拒绝——要抓全部必须显式加 `--all-journals`。
@@ -113,14 +113,14 @@ dhjournal capture --all-journals --year x --issue x   # 显式抓取全部已配
 ### 筛选与导入
 
 ```bash
-dhjournal review                                        # 重新显示最近一次筛选清单
-dhjournal abstract --index 1                            # 查看某一篇的完整摘要
-dhjournal export-review                                 # 导出 Excel 筛选表 data/review_selection.xlsx
-dhjournal import --spreadsheet data/review_selection.xlsx          # 按表格勾选导入
-dhjournal import --spreadsheet data/review_selection.xlsx --dry-run # 只预览会导入哪些
-dhjournal import --selection "1,3,5"                    # 按编号导入
-dhjournal import --titles-file "titles.txt" --confirm-titles       # 按题名匹配导入
-dhjournal import --selection "都不要"                    # 本批全部不导入，标记为跳过
+dhgleaner review                                        # 重新显示最近一次筛选清单
+dhgleaner abstract --index 1                            # 查看某一篇的完整摘要
+dhgleaner export-review                                 # 导出 Excel 筛选表 data/review_selection.xlsx
+dhgleaner import --spreadsheet data/review_selection.xlsx          # 按表格勾选导入
+dhgleaner import --spreadsheet data/review_selection.xlsx --dry-run # 只预览会导入哪些
+dhgleaner import --selection "1,3,5"                    # 按编号导入
+dhgleaner import --titles-file "titles.txt" --confirm-titles       # 按题名匹配导入
+dhgleaner import --selection "都不要"                    # 本批全部不导入，标记为跳过
 ```
 
 `export-review` 生成 `data/review_selection.xlsx`，在「筛选」页把「是否导入」列填「是」再执行 `import --spreadsheet`。
@@ -128,19 +128,19 @@ dhjournal import --selection "都不要"                    # 本批全部不导
 **筛选篮**适合边浏览边收集：
 
 ```bash
-dhjournal screen --list                     # 看当前清单
-dhjournal screen --search "关键词"           # 按关键词找编号
-dhjournal screen --add "1,3-5"              # 加进筛选篮
-dhjournal screen --remove "3"
-dhjournal screen --clear
-dhjournal screen --import                   # 把筛选篮里的文章导入
+dhgleaner screen --list                     # 看当前清单
+dhgleaner screen --search "关键词"           # 按关键词找编号
+dhgleaner screen --add "1,3-5"              # 加进筛选篮
+dhgleaner screen --remove "3"
+dhgleaner screen --clear
+dhgleaner screen --import                   # 把筛选篮里的文章导入
 ```
 
 ### 其他
 
 ```bash
-dhjournal --data-dir /path/to/dir <子命令>   # 临时指定数据目录
-dhjournal --help
+dhgleaner --data-dir /path/to/dir <子命令>   # 临时指定数据目录
+dhgleaner --help
 ```
 
 `import --all` 仍然保留（整期全要时才用），但不是推荐流程。
@@ -165,7 +165,7 @@ dhjournal --help
 
 `config.local.json` 已被 `.gitignore` 忽略，不会进版本库。**不要把 Key 写进任何公开文档或提交。**
 
-配置完成后用 `dhjournal doctor --zotero` 验证：它会读取全部 Collection 并逐个检查目标路径。
+配置完成后用 `dhgleaner doctor --zotero` 验证：它会读取全部 Collection 并逐个检查目标路径。
 
 Zotero 中需要提前存在这些 Collection 路径：
 
@@ -180,7 +180,7 @@ Zotero 中需要提前存在这些 Collection 路径：
     └── 《图书馆论坛》
 ```
 
-对应默认配置 `dhjournal/defaults/config.json` 中的设置（如需自定义，在数据目录放一个同名 `config.json` 即可覆盖）：
+对应默认配置 `dhgleaner/defaults/config.json` 中的设置（如需自定义，在数据目录放一个同名 `config.json` 即可覆盖）：
 
 ```json
 "collectionPath": ["10-研究相关", "数字人文"],
@@ -215,7 +215,7 @@ Zotero 中需要提前存在这些 Collection 路径：
 
 ```bash
 pip install -e ".[mcp]"
-dhjournal-mcp      # 以 stdio 方式运行 MCP 服务
+dhgleaner-mcp      # 以 stdio 方式运行 MCP 服务
 ```
 
 客户端配置示例：
@@ -223,8 +223,8 @@ dhjournal-mcp      # 以 stdio 方式运行 MCP 服务
 ```json
 {
   "mcpServers": {
-    "dh-journal-agent": {
-      "command": "dhjournal-mcp"
+    "dh-gleaner": {
+      "command": "dhgleaner-mcp"
     }
   }
 }
@@ -295,9 +295,9 @@ dhjournal-mcp      # 以 stdio 方式运行 MCP 服务
 按以下优先级解析，先命中先算：
 
 1. 命令行 `--data-dir /path/to/dir`
-2. 环境变量 `DHJOURNAL_DATA_DIR=/path/to/dir`
+2. 环境变量 `DHGLEANER_DATA_DIR=/path/to/dir`
 3. 当前工作目录若含 `config.json` 或 `data/`，就用当前目录（兼容旧用法）
-4. 兜底 `~/.dhjournal`
+4. 兜底 `~/.dhgleaner`
 
 ## 抓取质量校验
 
