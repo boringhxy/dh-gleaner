@@ -13,16 +13,14 @@ from ..review_spreadsheet import exportReviewSpreadsheet as writeReviewSpreadshe
 from ..selection import resolveSkipAll
 from ..service import (
     captureHarvest,
-)
-from ..service import (
-    captureIssue as _captureIssue,
-)
-from ..service import (
     captureJournalChannel,
     loadPending,
     loadPendingData,
     savePending,
     stateManager,
+)
+from ..service import (
+    captureIssue as _captureIssue,
 )
 from ..validation import (
     ValidationError,
