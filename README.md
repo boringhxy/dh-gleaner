@@ -26,23 +26,47 @@
 
 ## 安装
 
-需要 Python 3.10 或更高版本。
+需要 Python 3.10 或更高版本。装好后会得到命令行入口 `dhgleaner`；再加 `[mcp]` 会多一个 `dhgleaner-mcp` 入口，供 AI 客户端调用——不加 `[mcp]` 不影响命令行使用。
+
+**推荐：用 pipx 一行装好**，不用 clone，装进独立环境，不碰系统 Python：
+
+```bash
+pipx install "dh-gleaner @ git+https://github.com/boringhxy/dh-gleaner.git"
+pipx install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
+```
+
+没有 pipx 就先装它（`python3 -m pip install --user pipx`，macOS 也可以 `brew install pipx`），或者用 uv：
+
+```bash
+uv tool install "dh-gleaner @ git+https://github.com/boringhxy/dh-gleaner.git"
+uv tool install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
+```
+
+**也可以 clone 后用虚拟环境**：
 
 ```bash
 git clone https://github.com/boringhxy/dh-gleaner.git
 cd dh-gleaner
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .
+pip install ".[mcp]"
 ```
 
-装好后会得到命令行入口 `dhgleaner`。想让 AI 客户端（Claude Desktop、Cherry Studio 等）直接调用，再装上 MCP 额外依赖：
+`-e`（可编辑安装）只在你要改代码时用：`pip install -e ".[dev,mcp]"`。纯粹使用的话不需要 `-e`。
+
+升级到最新提交：
 
 ```bash
-pip install -e ".[mcp]"
+pipx upgrade dh-gleaner
 ```
 
-那会额外提供 `dhgleaner-mcp` 入口。不加 `[mcp]` 不影响命令行使用。
+装的是 git 源，若 pip 缓存导致没拉到最新提交，改用 `pipx install --force "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"` 强制重装；uv 对应 `uv tool upgrade dh-gleaner --reinstall`。
+
+装完先自检一次，它会自动建好数据目录并告诉你缺什么：
+
+```bash
+dhgleaner doctor
+```
 
 > 用 `python -m dhgleaner` 与 `dhgleaner` 等价；若你没有激活虚拟环境，写成 `./.venv/bin/dhgleaner` 也可以。
 
@@ -116,13 +140,22 @@ dhgleaner capture --all-journals --year x --issue x   # 显式抓取全部已配
 有些图情/信息刊没有常设的「数字人文」栏目，DH 内容以散篇混在各栏目里，且当期目录页不稳定，只能逐年翻过刊库。`harvest` 就是为这类刊准备的第三种采集流程：按年枚举全年全目录 → 用关键词表打标 → 只留数字人文散篇。结果同样落到 `data/review.md` / `pending.json`，`screen` / `import` 下游照常可用。
 
 ```bash
-dhgleaner harvest --year 2026                          # harvest 配置中所有 harvestOnly 散篇期刊
-dhgleaner harvest --journal "现代情报" --year 2026       # 只 harvest 某一刊
-dhgleaner harvest --year 2026 --all-catalog            # 保留全年全目录并打 DH 标签（不只留命中）
-dhgleaner harvest --year 2026 --no-abstracts           # 不抓摘要，更快（关键词只按标题命中）
-dhgleaner harvest --year 2026 --dedupe                 # 按 state.json 过滤已处理文章
-dhgleaner harvest --year 2026 --dry-run                # 只打印，不覆盖 pending/review
+dhgleaner harvest --year 2026
+dhgleaner harvest --journal "现代情报" --year 2026
+dhgleaner harvest --year 2026 --all-catalog
+dhgleaner harvest --year 2026 --no-abstracts
+dhgleaner harvest --year 2026 --dedupe
+dhgleaner harvest --year 2026 --dry-run
 ```
+
+| 参数 | 作用 |
+|------|------|
+| 不加参数 | harvest 配置中所有 `harvestOnly` 散篇期刊 |
+| `--journal "现代情报"` | 只 harvest 某一刊 |
+| `--all-catalog` | 保留全年全目录并打 DH 标签，不只留命中的 |
+| `--no-abstracts` | 不抓摘要，更快；关键词只按标题命中 |
+| `--dedupe` | 按 `state.json` 过滤掉已处理过的文章 |
+| `--dry-run` | 只打印，不覆盖 `pending.json` / `review.md` |
 
 `harvestOnly: true` 的期刊只进入 harvest 轮转，会被 `capture --all-journals` 与 `doctor --network` 跳过；对它们用 `capture` 抓当期会被拒绝并提示改用 `harvest`（除非显式给 `--url`）。
 
@@ -175,7 +208,9 @@ dhgleaner --help
 1. 打开 <https://www.zotero.org/settings/keys>。
 2. 新建 API Key，勾选允许读写 library 的权限。
 3. 在同一页找到数字形式的 userID。
-4. 把仓库里的 `config.local.example.json` 复制成 `config.local.json`，填入两项：
+4. 运行 `dhgleaner init`，按提示粘贴这两项——输入不回显，存完会立刻测一次连接。
+
+想手动配置，就把下面两项写进**数据目录**下的 `config.local.json`（默认是 `~/.dhgleaner/config.local.json`；`dhgleaner doctor` 会打印确切路径，并给出可复制的模板路径）：
 
 ```json
 {
@@ -186,7 +221,7 @@ dhgleaner --help
 }
 ```
 
-`config.local.json` 已被 `.gitignore` 忽略，不会进版本库。**不要把 Key 写进任何公开文档或提交。**
+`config.local.json` 不进版本库、不上传、日志里也不会出现。**不要把 Key 写进任何公开文档、issue 或提交。**
 
 配置完成后用 `dhgleaner doctor --zotero` 验证：它会读取全部 Collection 并逐个检查目标路径。
 
@@ -246,12 +281,13 @@ Zotero 中需要提前存在这些 Collection 路径：
 
 ## 接入 AI 客户端（MCP）
 
-本工具自带 MCP 服务端，可被支持 MCP 的 AI 客户端直接调用。
+本工具自带 MCP 服务端，可被支持 MCP 的 AI 客户端直接调用。装上 `[mcp]` 额外依赖即可：
 
 ```bash
-pip install -e ".[mcp]"
-dhgleaner-mcp      # 以 stdio 方式运行 MCP 服务
+pipx install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
 ```
+
+装好后 `dhgleaner-mcp` 即以 stdio 方式运行 MCP 服务。
 
 客户端配置示例：
 
@@ -265,6 +301,26 @@ dhgleaner-mcp      # 以 stdio 方式运行 MCP 服务
 }
 ```
 
+两个实际会踩到的点：
+
+- **客户端通常不继承你 shell 的 PATH**，写裸命令名可能报「找不到命令」。用 `command -v dhgleaner-mcp` 查出绝对路径填进去，例如 `/Users/you/.local/bin/dhgleaner-mcp`。
+- **客户端的工作目录不是你跑命令行的那个目录**，而 `--data-dir` 对 MCP 不适用。如果你在某个项目目录里用命令行抓过数据，想让 AI 客户端读到同一批清单，就在配置里显式指定数据目录，否则它会用兜底的 `~/.dhgleaner`：
+
+```json
+{
+  "mcpServers": {
+    "dh-gleaner": {
+      "command": "/Users/you/.local/bin/dhgleaner-mcp",
+      "env": {
+        "DHGLEANER_DATA_DIR": "/path/to/your/工作目录"
+      }
+    }
+  }
+}
+```
+
+几乎所有工具的返回值里都带 `dataDir`、`dataDirSource`、`configLocalPath`，可以让客户端确认自己读写的是哪个目录。
+
 服务端暴露 14 个工具：
 
 - **只读 8 个**：`list_journals`、`get_capture_status`、`list_pending_articles`、`get_article_abstract`、`search_pending_articles`、`preview_import`、`get_import_report`、`run_doctor`
@@ -277,7 +333,7 @@ dhgleaner-mcp      # 以 stdio 方式运行 MCP 服务
 
 ## 数据文件
 
-默认在项目根目录的 `data/` 下（可换，见下）。
+默认位置取决于安装方式：clone 后在项目根目录的 `data/` 下，用 pipx / uv 装的则在 `~/.dhgleaner/data/` 下。完整解析规则见文末「数据目录位置」。
 
 | 文件 | 作用 |
 |------|------|
@@ -364,16 +420,43 @@ PDF 只在导入阶段处理。
 - 《数位典藏与数位人文》Airiti 页面若返回平台宣传内容会被质量校验拦截，优先用 TADH 官方公告页或人工整理清单。
 - 本工具**不会**破解验证码、绕过登录，或替代学校账号权限。
 
+## 反馈与求助
+
+三种 issue 模板对应三类需求，选对模板能省一轮来回：
+
+| 你想做的事 | 去处 |
+|------------|------|
+| 报 bug：抓取结果不对、命令报错、导入失败、Excel 表打不开 | [Bug 报告](https://github.com/boringhxy/dh-gleaner/issues/new?template=bug_report.yml) |
+| 希望接入某本还没支持的期刊 | [新增期刊源](https://github.com/boringhxy/dh-gleaner/issues/new?template=new_journal.yml) |
+| 安装、配置、Zotero、MCP 用法咨询 | [使用咨询](https://github.com/boringhxy/dh-gleaner/issues/new?template=question.yml) |
+| 安全漏洞：凭据可能泄漏的路径、绕过导入确认闸门 | 邮件 `boringhxy@163.com`，见 [SECURITY.md](SECURITY.md)，**不要**开公开 issue |
+| 想改代码、加解析器 | [CONTRIBUTING.md](CONTRIBUTING.md)，先读硬性红线 |
+
+报 bug 时最有用的是两样东西，请一并贴上：
+
+1. `dhgleaner doctor` 的完整输出——已脱敏，不含你的 API Key。
+2. `data/last_capture_status.json` 的内容——它说明本次抓取是成功、失败还是 `suspect`，以及旧的 `review.md` 是否仍然有效。
+
+**任何情况下都不要把 `config.local.json` 的内容或 Zotero API Key 贴进 issue。**
+
+提「新增期刊源」时最关键的一项，是一个**不登录就能打开的真实目录页 URL**——接入工作量几乎完全取决于目录页能否被稳定读到。模板还会问到站点平台（决定能否直接复用现有六种 parser 之一）、DH 内容是集中在固定栏目还是散落在各栏目（决定走 `capture-channel`、`capture` 还是 `harvest`）、摘要与 PDF 的可得性。这些正是写 parser 需要的信息，详见 `docs/sources.md`。
+
+本工具不做的事，提需求也不会被接受：破解验证码、模拟登录、绕过付费墙、批量下载受版权保护的全文。这条红线写在 CONTRIBUTING.md 里，也是这个项目能公开存在的前提。
+
 ## 开发
 
 ```bash
+git clone https://github.com/boringhxy/dh-gleaner.git
+cd dh-gleaner
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -e ".[dev,mcp]"      # mcp 可选：不装则跳过 1 项 server 注册校验，其余用例照常
 
 python -B -m unittest discover -s tests -v    # 单元测试
 ruff check .                                  # 静态检查
 ```
 
-贡献方式与红线见 `CONTRIBUTING.md`；安全问题上报见 `SECURITY.md`；版本变更见 `CHANGELOG.md`。
+贡献方式与红线见 `CONTRIBUTING.md`；安全问题上报见 `SECURITY.md`；版本变更见 `CHANGELOG.md`。提 PR 时会用到 `.github/PULL_REQUEST_TEMPLATE.md` 里的检查清单。
 
 ## 许可
 

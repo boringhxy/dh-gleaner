@@ -2,10 +2,13 @@
 
 ## 启动
 
+装上 `[mcp]` 额外依赖后即有 `dhgleaner-mcp` 入口，它以 stdio 运行 MCP 服务端：
+
 ```bash
-pip install -e ".[mcp]"
-dhgleaner-mcp        # 以 stdio 运行 MCP 服务端
+pipx install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
 ```
+
+开发环境用 `pip install -e ".[dev,mcp]"`。
 
 客户端配置：
 
@@ -19,7 +22,24 @@ dhgleaner-mcp        # 以 stdio 运行 MCP 服务端
 }
 ```
 
-数据目录解析规则与命令行一致（`--data-dir` 不适用于 MCP；用 `DHGLEANER_DATA_DIR` 环境变量指定）。几乎所有工具都会在返回值里带上 `dataDir`、`dataDirSource`、`configLocalPath`，便于客户端确认自己在读写哪个目录。
+**客户端通常不继承你 shell 的 PATH**，裸命令名可能报「找不到命令」。用 `command -v dhgleaner-mcp` 查出绝对路径填进去。
+
+数据目录解析规则与命令行一致，但 `--data-dir` 不适用于 MCP，只能用 `DHGLEANER_DATA_DIR` 环境变量指定；客户端的工作目录也不是你在命令行里用的那个，所以如果你一直在某个项目目录下抓取，务必在客户端配置里显式给出数据目录，否则它会落到兜底的 `~/.dhgleaner`：
+
+```json
+{
+  "mcpServers": {
+    "dh-gleaner": {
+      "command": "/Users/you/.local/bin/dhgleaner-mcp",
+      "env": {
+        "DHGLEANER_DATA_DIR": "/path/to/your/working-directory"
+      }
+    }
+  }
+}
+```
+
+几乎所有工具都会在返回值里带上 `dataDir`、`dataDirSource`、`configLocalPath`，便于客户端确认自己在读写哪个目录。
 
 ## 返回契约
 

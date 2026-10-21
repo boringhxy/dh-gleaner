@@ -1,0 +1,109 @@
+name: 新增期刊源
+description: 希望接入某本还没支持的期刊
+title: "[Source] "
+labels: ["source-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        谢谢你提来源。接入一本新刊的工作量，几乎完全取决于**目录页能不能被稳定读到**，
+        所以下面几项里最重要的是「一个真实可访问的目录页 URL」。
+
+        接入流程见 [docs/sources.md](https://github.com/boringhxy/dh-gleaner/blob/main/docs/sources.md)：
+        优先用现有六种 parser 加配置表达差异，实在不行才新写 parser（新写时需要你提供简化过的样例 HTML 片段）。
+
+        > **红线**：目录页必须在**不登录、不绕过验证码**的前提下可访问。
+        > 需要机构账号、付费或有验证码拦截的来源不会被接入，见 CONTRIBUTING.md。
+  - type: input
+    id: journal-name
+    attributes:
+      label: 期刊名称
+      placeholder: 例：图书情报工作
+    validations:
+      required: true
+  - type: input
+    id: site
+    attributes:
+      label: 期刊官网
+      placeholder: 例：https://www.example.cn/
+    validations:
+      required: true
+  - type: input
+    id: toc-url
+    attributes:
+      label: 一个真实目录页 URL
+      description: 当期或任一过刊都可以。这是判断能否接入的关键
+      placeholder: 例：https://www.example.cn/CN/Y2026/V1/I2
+    validations:
+      required: true
+  - type: input
+    id: archive-url
+    attributes:
+      label: 过刊列表页 URL
+      description: 有过刊页才能自动定位历史期次；没有就留空
+      placeholder: 例：https://www.example.cn/CN/volumn/home.shtml
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 站点平台（不确定就选「不确定」）
+      description: 决定能否直接复用现有 parser
+      options:
+        - 不确定
+        - Magtech（域名含 magtechjournal.com、路径含 /jwk3/ 或 /ch/reader/）
+        - journalx（issue_list.aspx 式的 jlis.cn 风格站点）
+        - 方正 rc-pub（有开放 JSON 接口）
+        - CNKI 采编平台（域名含 cbpt.cnki.net）
+        - journy3（dhr.ruc.edu.cn 风格）
+        - 自建站点 / 其他
+  - type: dropdown
+    id: distribution
+    attributes:
+      label: 数字人文内容在这本刊里怎么分布
+      description: 决定该走哪条采集流程
+      options:
+        - 有常设的「数字人文」栏目 → 适合 capture-channel 抓整个栏目
+        - 每期目录里就有 DH 文章，但没有固定栏目 → 适合按期 capture
+        - DH 内容以散篇混在各栏目、当期页也不稳定 → 适合 harvest 按年枚举加关键词筛
+        - 不确定
+    validations:
+      required: true
+  - type: dropdown
+    id: abstract
+    attributes:
+      label: 摘要情况
+      options:
+        - 目录页上直接就有摘要
+        - 需要点进文章详情页才有摘要
+        - 没有摘要
+        - 不确定
+  - type: dropdown
+    id: pdf
+    attributes:
+      label: PDF 情况
+      description: 本工具只在导入你选中的文章时才处理 PDF
+      options:
+        - 公开可下载
+        - 需要登录或机构权限
+        - 没有 PDF
+        - 不确定
+  - type: textarea
+    id: notes
+    attributes:
+      label: 其他说明
+      description: 页面是否稳定、有无验证码或访问频率限制、卷期编号规则是否特殊、有没有你想指定的 Zotero Collection 名
+  - type: checkboxes
+    id: willingness
+    attributes:
+      label: 参与意愿（可选，勾了能明显加快接入）
+      options:
+        - label: 我可以提供简化过的样例 HTML 片段用于写单元测试
+        - label: 我愿意自己试着提 PR
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 上面那个目录页 URL 在不登录的情况下可以直接打开
+          required: true
+        - label: 我不是在要求绕过验证码、登录或付费墙
+          required: true

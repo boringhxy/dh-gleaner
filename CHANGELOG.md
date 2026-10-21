@@ -12,11 +12,25 @@
 - **7 本散篇期刊**入默认配置（现代情报、情报科学、中国图书馆学报、国家图书馆学刊、数字图书馆论坛、图书情报知识、信息资源管理学报），标 `harvestOnly: true`：只进 harvest 轮转，被 `capture --all-journals` 与 `doctor --network` 跳过，用 `capture` 抓当期会被拒绝并提示改用 `harvest`（除非显式给 `--url`）。
 - `Article` 增 `keywords`/`dhMatched`/`histAiMatched` 字段；`http_util` 增 `fetchJson`（与 `fetchHtml` 同套 401/403/412 拦截与重试语义）；新增 `textutil`（文本清洗 + 前置条目识别）。
 - 离线测试 `tests/test_harvest.py`（关键词打标、前置条目过滤、三皮肤解析、harvest 过滤，全部用桩不发网络请求）。
+- **反馈入口**：`.github/ISSUE_TEMPLATE/` 下三份 issue 表单——Bug 报告（索要 `dhgleaner doctor` 输出与 `data/last_capture_status.json`）、新增期刊源（索要免登录可访问的真实目录页 URL、站点平台、DH 内容分布以判定走 capture / capture-channel / harvest）、使用咨询；外加 `config.yml` 把安全问题导流到 SECURITY.md 的邮件渠道。另加 `.github/PULL_REQUEST_TEMPLATE.md`，把 CONTRIBUTING.md 的红线与提交前检查做成勾选清单。三份表单都强制确认「未粘贴 API Key」。
 
 ### 变更
 
 - **MCP 服务端**工具数 13 → 14（写本地组新增 `harvest_year`）；`list_journals` 返回增加 `harvestOnly` 字段。
 - 抓取质量校验对 `captureType="harvest"` 跳过「year==0」误抓判定（散篇清单本就没有单一期次）。
+
+### 修复
+
+- **CI 恢复绿灯**：`dhgleaner/mcp/tools_capture.py` 的 import 块触发 ruff `I001`（未排序），导致 harvest 那次提交的 8 个测试矩阵格子全部挂在 Lint 步骤、只有 build 任务通过。`captureHarvest` 原本被单独拆成一个 `from ..service import` 块，现与其余无别名导入合并；带别名的 `captureIssue as _captureIssue` 按 ruff isort 规则仍需独立成块（别名 `_captureIssue` 的排序位置与原导入名不同，合并会改变顺序语义）。纯 import 整理，无行为改动。
+
+### 文档
+
+- **安装方式补齐免 clone 路径**：README 与 README.en.md 都改为推荐 `pipx install "dh-gleaner[mcp] @ git+https://..."` 与 `uv tool install`，并说明 `-e` 只用于改代码、git 源升级遇到 pip 缓存时用 `--force` / `--reinstall`。此前只有 `git clone` + venv + `pip install -e .` 一条路，对不打算改代码的使用者并不合适。
+- **MCP 接入补两个实际会踩的坑**：客户端通常不继承 shell PATH（裸命令名会报找不到，改用 `command -v dhgleaner-mcp` 得到的绝对路径），以及客户端工作目录与命令行不同导致读到不同数据目录（`--data-dir` 对 MCP 无效，需在客户端配置里给 `DHGLEANER_DATA_DIR`）。`docs/mcp.md` 同步。
+- **README.en.md 追平中文版**：补上此前完全缺失的 harvest 章节（含 DH 关键词双表判定口径）、Capture 表的 harvest 行、以及 7 本 `harvestOnly` 期刊表——英文版原本只列 6 本期刊，国际读者看不到 harvest 这条链路。
+- **Zotero 凭据配置改为以 `dhgleaner init` 为主**：原文写「把仓库里的 `config.local.example.json` 复制成 `config.local.json`」，但 pipx / uv 安装下并不存在「仓库」；改为先给交互式 `init`，手动配置则说明写进数据目录下的 `config.local.json`，并指出 `dhgleaner doctor` 会打印确切路径。
+- README 新增「反馈与求助」章节（中英对照），列清三类 issue、安全上报渠道、报 bug 时该附的两样东西，以及不会被接受的需求类型。
+- harvest 命令示例由行内注释改为参数表：行内 `#` 注释在未开启 `interactive_comments` 的 zsh 里会被当成命令参数，整块粘贴会失败。
 
 ## [0.1.0] - 2026-10-10
 

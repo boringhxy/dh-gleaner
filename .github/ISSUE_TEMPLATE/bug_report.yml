@@ -1,0 +1,112 @@
+name: Bug 报告
+description: 抓取结果不对、命令报错、导入失败、Excel 表打不开等问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        谢谢你来报告问题。
+
+        报 bug 前请先运行 `dhgleaner doctor`，它的输出已经脱敏，可以放心粘贴。
+        如果问题出在抓取环节，再把 `data/last_capture_status.json` 的内容一起贴上——
+        这个文件会说明本次抓取是成功、失败还是 `suspect`，以及旧的 `review.md` 是否仍然有效，
+        是定位问题最有用的一份信息。
+
+        > **切勿粘贴 `config.local.json` 的内容，或任何 Zotero API Key。**
+        > 安全漏洞请走 [SECURITY.md](https://github.com/boringhxy/dh-gleaner/blob/main/SECURITY.md) 里的邮件渠道，不要开公开 issue。
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么
+      description: 你期望的结果，和实际看到的结果
+      placeholder: |
+        期望：抓到《数字人文研究》2026 年第 6 卷第 2 期的完整目录。
+        实际：提示 suspect，data/review.md 没有更新。
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: 你运行的完整命令
+      description: 原样粘贴，包括所有参数
+      render: bash
+      placeholder: dhgleaner capture --journal "数字人文研究" --year 2026 --volume 6 --issue 2
+    validations:
+      required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: 出问题的环节
+      options:
+        - 安装 / 依赖
+        - doctor 自检
+        - init 初始化引导
+        - capture 期次抓取
+        - capture-channel 栏目抓取
+        - harvest 散篇按年采集
+        - review / abstract 查看清单
+        - export-review 导出 Excel
+        - screen 筛选篮
+        - import 导入 Zotero
+        - MCP 客户端调用
+        - 文档与说明
+    validations:
+      required: true
+  - type: dropdown
+    id: journal
+    attributes:
+      label: 涉及期刊
+      description: 与期刊无关（如安装问题）就选最后一项
+      options:
+        - 数字人文研究
+        - 数字人文
+        - 中国数字人文
+        - 数位典藏与数位人文
+        - 图书馆杂志
+        - 图书馆论坛
+        - 现代情报
+        - 情报科学
+        - 中国图书馆学报
+        - 国家图书馆学刊
+        - 数字图书馆论坛
+        - 图书情报知识
+        - 信息资源管理学报
+        - 多个期刊
+        - 与期刊无关
+  - type: textarea
+    id: doctor
+    attributes:
+      label: "`dhgleaner doctor` 输出"
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: capture-status
+    attributes:
+      label: "`data/last_capture_status.json` 内容"
+      description: 与抓取相关时必填；其他环节可留空
+      render: json
+  - type: textarea
+    id: error-output
+    attributes:
+      label: 报错信息与 traceback
+      description: 如有，请完整粘贴，不要截断
+      render: text
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境
+      description: 操作系统、Python 版本、安装方式
+      placeholder: macOS 15.5 / Python 3.12 / pipx install "dh-gleaner[mcp] @ git+https://..."
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我没有在这个 issue 里粘贴 Zotero API Key 或 `config.local.json` 的内容
+          required: true
+        - label: 我要报的不是「希望绕过验证码、登录或付费墙」——这类需求不会被接受，见 CONTRIBUTING.md 的硬性红线
+          required: true

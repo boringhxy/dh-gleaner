@@ -26,23 +26,47 @@ This tool splits the job into three stages:
 
 ## Installation
 
-Python 3.10 or later is required.
+Python 3.10 or later is required. You get the `dhgleaner` command; adding the `[mcp]` extra also installs `dhgleaner-mcp`, the entry point AI clients use. Skipping `[mcp]` does not affect command-line usage.
+
+**Recommended: one line with pipx.** No clone, isolated environment, your system Python untouched:
+
+```bash
+pipx install "dh-gleaner @ git+https://github.com/boringhxy/dh-gleaner.git"
+pipx install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
+```
+
+If you do not have pipx yet, install it first (`python3 -m pip install --user pipx`, or `brew install pipx` on macOS), or use uv:
+
+```bash
+uv tool install "dh-gleaner @ git+https://github.com/boringhxy/dh-gleaner.git"
+uv tool install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
+```
+
+**Or clone into a virtual environment:**
 
 ```bash
 git clone https://github.com/boringhxy/dh-gleaner.git
 cd dh-gleaner
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .
+pip install ".[mcp]"
 ```
 
-This installs the `dhgleaner` command. To let MCP-capable AI clients (Claude Desktop, Cherry Studio, and others) call the tool directly, add the MCP extra:
+Editable installs (`-e`) are only for hacking on the code: `pip install -e ".[dev,mcp]"`. You do not need `-e` just to use the tool.
+
+To move to a newer commit:
 
 ```bash
-pip install -e ".[mcp]"
+pipx upgrade dh-gleaner
 ```
 
-That additionally provides the `dhgleaner-mcp` entry point. Skipping `[mcp]` does not affect command-line usage.
+Because the source is git, a warm pip cache can serve a stale build; if that happens use `pipx install --force "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"`. With uv, the equivalent is `uv tool upgrade dh-gleaner --reinstall`.
+
+Run the self-check once after installing. It creates the data directory and tells you what is missing:
+
+```bash
+dhgleaner doctor
+```
 
 > `python -m dhgleaner` is equivalent to `dhgleaner`. If your virtual environment is not activated, `./.venv/bin/dhgleaner` works too.
 
@@ -94,6 +118,7 @@ dhgleaner doctor --network       # additionally run a network connectivity check
 | Issue | One issue of one journal | `dhgleaner capture --journal "期刊名" --year x --issue x` |
 | Volume + issue | When the volume number matters | `dhgleaner capture --journal "期刊名" --year x --volume x --issue x` |
 | Section | A cross-issue section, full history | `dhgleaner capture-channel --journal "图书馆杂志" --channel "数字人文"` |
+| Yearly harvest | LIS/information journals with no standing DH section, where DH articles are scattered and the current-issue page is unstable — enumerate a whole year, then filter by keyword | `dhgleaner harvest --year 2026` |
 | Manual contents page | Announcement pages, WeChat listings, unstable Airiti pages | `dhgleaner capture --journal "期刊名" --url "contents-page-URL"` |
 
 ```bash
@@ -108,6 +133,37 @@ dhgleaner capture --all-journals --year x --issue x   # explicitly capture every
 ```
 
 `capture --year x --issue x` without a journal is rejected — capturing everything requires the explicit `--all-journals` flag.
+
+### Scattered-article harvest (enumerate a year, then filter by keyword)
+
+Some library-and-information-science journals have no standing "digital humanities" section. Their DH articles are scattered across ordinary sections, and the current-issue page is unstable enough that the only reliable route is to walk the archive year by year. `harvest` is the third capture flow, built for exactly those journals: enumerate a full year of tables of contents → tag every article against the keyword tables → keep only the DH hits. Output lands in the same `data/review.md` / `pending.json`, so `screen` and `import` downstream work unchanged.
+
+```bash
+dhgleaner harvest --year 2026
+dhgleaner harvest --journal "现代情报" --year 2026
+dhgleaner harvest --year 2026 --all-catalog
+dhgleaner harvest --year 2026 --no-abstracts
+dhgleaner harvest --year 2026 --dedupe
+dhgleaner harvest --year 2026 --dry-run
+```
+
+| Flag | Effect |
+|------|--------|
+| _(none)_ | Harvest every journal marked `harvestOnly` in the configuration |
+| `--journal "现代情报"` | Harvest one journal only |
+| `--all-catalog` | Keep the whole year's catalogue with DH tags, not just the hits |
+| `--no-abstracts` | Skip abstract fetching; faster, but keywords then match titles only |
+| `--dedupe` | Drop articles already recorded in `state.json` |
+| `--dry-run` | Print only; do not overwrite `pending.json` / `review.md` |
+
+Journals marked `harvestOnly: true` take part in the harvest rotation only: `capture --all-journals` and `doctor --network` skip them, and running `capture` on one for a single issue is rejected with a hint to use `harvest` instead (unless you pass an explicit `--url`).
+
+**Keyword criteria** (`dhgleaner/keywords.py`, shared by `capture` and `harvest`; every article gets both tags). An article counts as DH **if and only if** it matches a DH domain term **or** satisfies the history+AI co-occurrence rule:
+
+- **DH table** (`dhMatched`) — domain terms such as 数字人文 / 文化遗产 / 数字典藏 / 博物馆 / GLAM / 计量史学. **Any single hit** counts.
+- **History+AI table** (`histAiMatched`) — history terms (古籍 / 甲骨 / 敦煌 / 方志 / 断代史 …) paired with computational-method terms (知识图谱 / 文本挖掘 / GIS / 深度学习 / 语义 / 本体 …). This uses a **co-occurrence** rule: at least one hit on each side is required.
+- **Computational-method terms alone never count as DH.** LIS and information-science journals publish a great many "AI in LIS" papers that use method vocabulary with no digital-humanities substance; letting those through would flood the shortlist with noise. Method terms therefore only count as the computational side of a history+AI pair.
+- Matching is case-sensitive substring matching, so abbreviations like RAG / GIS / OCR cannot accidentally match inside `storage` or `logistics`. Deliberately excluded trap words include 历史, 古代, 传统, 文化, 档案 and 记忆 — too generic to signal anything.
 
 ### Screen and import
 
@@ -151,7 +207,9 @@ The tool speaks to Zotero through the Web API and uses **your own** credentials.
 1. Open <https://www.zotero.org/settings/keys>.
 2. Create an API key with library read/write permission.
 3. On the same page, note the numeric userID.
-4. Copy `config.local.example.json` to `config.local.json` and fill in both fields:
+4. Run `dhgleaner init` and paste both values when prompted — input is not echoed, and the connection is tested as soon as they are saved.
+
+To configure by hand instead, write the two fields into `config.local.json` **in your data directory** (by default `~/.dhgleaner/config.local.json`; `dhgleaner doctor` prints the exact path plus the location of a template you can copy):
 
 ```json
 {
@@ -162,7 +220,7 @@ The tool speaks to Zotero through the Web API and uses **your own** credentials.
 }
 ```
 
-`config.local.json` is listed in `.gitignore` and never enters version control. **Never paste the key into public documents or commits.**
+`config.local.json` never enters version control, is never uploaded, and never appears in logs. **Never paste the key into a public document, an issue, or a commit.**
 
 Verify with `dhgleaner doctor --zotero`: it reads every collection and checks the target paths one by one.
 
@@ -206,16 +264,29 @@ If you want the tool to create missing collections for you, set `zotero.autoCrea
 | 图书馆杂志 | `https://www.libraryjournal.com.cn/` | `magtech` | Issue pages, plus full paginated capture of the 数字人文 section | Usually available | Downloaded and attached when importing selected articles |
 | 图书馆论坛 | `http://tsglt.zslib.com.cn/` | `magtech` | Volume numbers can be derived from configuration to reach archived issues | Usually available | Downloaded and attached when importing selected articles |
 
-New journals are added mainly through configuration; how parsers are extended is described in `docs/sources.md`.
+The following journals are marked `harvestOnly: true`: they are collected through `harvest` on a yearly basis only, are skipped by `capture --all-journals`, and do not download PDFs by default.
+
+| Journal | Site | Parser | Harvest strategy |
+|---------|------|--------|------------------|
+| 现代情报 | `https://www.xdqb.net/` | `founder` | Founder rc-pub open JSON API (`getPeriodTree`, articles grouped by section, abstracts inline) |
+| 情报科学 | `https://journal12.magtechjournal.com/jwk3_qbkx` | `magtech` | Archive with the `ul.lunwen` skin; abstracts fetched per article |
+| 中国图书馆学报 | `https://www.jlis.cn/jtlsc/ch/reader/` | `journalx` | `issue_list.aspx` enumerated by quarter; `view_abstract` fetched per article |
+| 国家图书馆学刊 | `https://gtxk.nlc.cn/ch/reader/` | `journalx` | Same as above |
+| 数字图书馆论坛 | `http://journals.istic.ac.cn/dlf/ch/reader/` | `journalx` | Same as above |
+| 图书情报知识 | `https://dik.whu.edu.cn/jwk3/tsqbzs` | `magtech` | Archive with the `div.dqml` skin (DOI-style title links); abstracts fetched per article |
+| 信息资源管理学报 | `https://jirm.whu.edu.cn/jwk3/xxzyglxb` | `magtech` | Same as above |
+
+New journals are added mainly through configuration; how parsers are extended is described in `docs/sources.md`. To ask for one, use the [new journal source](https://github.com/boringhxy/dh-gleaner/issues/new?template=new_journal.yml) issue template — a real contents-page URL that opens without logging in is the single most useful thing you can supply.
 
 ## Using it from an AI client (MCP)
 
-The project ships an MCP server that MCP-capable clients can call directly.
+The project ships an MCP server that MCP-capable clients can call directly. Install the `[mcp]` extra:
 
 ```bash
-pip install -e ".[mcp]"
-dhgleaner-mcp      # runs the MCP server over stdio
+pipx install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
 ```
+
+Then `dhgleaner-mcp` runs the server over stdio.
 
 Example client configuration:
 
@@ -229,6 +300,26 @@ Example client configuration:
 }
 ```
 
+Two things bite in practice:
+
+- **Clients usually do not inherit your shell's PATH**, so a bare command name can fail with "command not found". Run `command -v dhgleaner-mcp` and put the absolute path in the config, e.g. `/Users/you/.local/bin/dhgleaner-mcp`.
+- **The client's working directory is not the one you use on the command line**, and `--data-dir` does not apply to MCP. If you have been capturing into a project directory and want the AI client to see the same shortlist, set the data directory explicitly — otherwise it falls back to `~/.dhgleaner`:
+
+```json
+{
+  "mcpServers": {
+    "dh-gleaner": {
+      "command": "/Users/you/.local/bin/dhgleaner-mcp",
+      "env": {
+        "DHGLEANER_DATA_DIR": "/path/to/your/working-directory"
+      }
+    }
+  }
+}
+```
+
+Nearly every tool returns `dataDir`, `dataDirSource` and `configLocalPath`, so the client can confirm which directory it is reading and writing.
+
 The server exposes 14 tools:
 
 - **Read-only (8)**: `list_journals`, `get_capture_status`, `list_pending_articles`, `get_article_abstract`, `search_pending_articles`, `preview_import`, `get_import_report`, `run_doctor`
@@ -241,7 +332,7 @@ Full parameters and return fields are documented in `docs/mcp.md`.
 
 ## Data files
 
-By default these live under `data/` in the project root (this is configurable, see below).
+Where these live depends on how you installed the tool: under `data/` in the project root after a clone, or under `~/.dhgleaner/data/` for a pipx / uv install. See "Data directory resolution" at the end of this section for the full rule.
 
 | File | Purpose |
 |------|---------|
@@ -328,16 +419,43 @@ PDFs are handled only during import.
 - 数位典藏与数位人文 pages that return platform promotional content are rejected by the quality checks; prefer the official TADH announcement page or a manually curated list.
 - This tool **never** solves CAPTCHAs, bypasses logins, or substitutes for your institution's access rights.
 
+## Feedback and help
+
+Three issue templates cover three kinds of request. Picking the right one saves a round trip:
+
+| What you need | Where to go |
+|---------------|-------------|
+| Report a bug: wrong capture result, command error, failed import, spreadsheet will not open | [Bug report](https://github.com/boringhxy/dh-gleaner/issues/new?template=bug_report.yml) |
+| Ask for a journal that is not supported yet | [New journal source](https://github.com/boringhxy/dh-gleaner/issues/new?template=new_journal.yml) |
+| Questions about installation, configuration, Zotero or MCP | [Question](https://github.com/boringhxy/dh-gleaner/issues/new?template=question.yml) |
+| Security flaw: a path that could leak credentials, or a way around the import confirmation gate | Email `boringhxy@163.com`, see [SECURITY.md](SECURITY.md) — **do not** open a public issue |
+| Contribute code or a new parser | [CONTRIBUTING.md](CONTRIBUTING.md), read the hard limits first |
+
+When reporting a bug, two things help most — please attach both:
+
+1. The full output of `dhgleaner doctor`. It is already redacted and contains no API key.
+2. The contents of `data/last_capture_status.json`. It records whether the capture succeeded, failed, or was marked `suspect`, and whether the old `review.md` is still valid.
+
+**Never paste the contents of `config.local.json` or a Zotero API key into an issue.**
+
+For a new journal source, the single most important field is **a real contents-page URL that opens without logging in** — how much work the integration takes depends almost entirely on whether the contents page can be read reliably. The template also asks about the platform (which decides whether one of the six existing parsers can be reused through configuration), whether DH articles sit in a standing section or are scattered across sections (which decides between `capture-channel`, `capture` and `harvest`), and whether abstracts and PDFs are reachable. That is exactly the information needed to write a parser; see `docs/sources.md`.
+
+Things this tool does not do, and will not accept requests for: solving CAPTCHAs, simulating logins, getting around paywalls, bulk-downloading copyrighted full text. That line is written into CONTRIBUTING.md, and it is the precondition for this project being public at all.
+
 ## Development
 
 ```bash
+git clone https://github.com/boringhxy/dh-gleaner.git
+cd dh-gleaner
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -e ".[dev,mcp]"      # mcp is optional: without it, 1 server-registration check is skipped
 
 python -B -m unittest discover -s tests -v    # unit tests
 ruff check .                                  # static checks
 ```
 
-See `CONTRIBUTING.md` for contribution rules and hard limits, `SECURITY.md` for reporting vulnerabilities, and `CHANGELOG.md` for version history.
+See `CONTRIBUTING.md` for contribution rules and hard limits, `SECURITY.md` for reporting vulnerabilities, and `CHANGELOG.md` for version history. Pull requests use the checklist in `.github/PULL_REQUEST_TEMPLATE.md`.
 
 ## License
 

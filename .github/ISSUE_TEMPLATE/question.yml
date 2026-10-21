@@ -1,0 +1,54 @@
+name: 使用咨询
+description: 安装、配置、工作流、Zotero、MCP 相关的问题
+title: "[Question] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提问前建议先翻一下对应文档，很多问题的答案都在里面：
+
+        | 你想问的 | 先看 |
+        |---|---|
+        | 整体流程、四类抓取任务、异常处理 | [docs/workflow.md](https://github.com/boringhxy/dh-gleaner/blob/main/docs/workflow.md) |
+        | 安装、命令用法、支持的期刊 | [README.md](https://github.com/boringhxy/dh-gleaner/blob/main/README.md) |
+        | Zotero Collection、字段映射、PDF 附件 | [docs/zotero.md](https://github.com/boringhxy/dh-gleaner/blob/main/docs/zotero.md) |
+        | AI 客户端接入、14 个 MCP 工具 | [docs/mcp.md](https://github.com/boringhxy/dh-gleaner/blob/main/docs/mcp.md) |
+        | `pending.json` 等数据文件的结构 | [docs/data-format.md](https://github.com/boringhxy/dh-gleaner/blob/main/docs/data-format.md) |
+        | 抓取质量校验规则、合规边界 | [docs/quality-and-safety.md](https://github.com/boringhxy/dh-gleaner/blob/main/docs/quality-and-safety.md) |
+
+        > **切勿粘贴 `config.local.json` 的内容，或任何 Zotero API Key。**
+  - type: textarea
+    id: question
+    attributes:
+      label: 你的问题
+      description: 说清你想达成的目标，而不只是卡住的那一步
+      placeholder: 我想让 Cherry Studio 直接调用这个工具抓当期目录，配好 MCP 后客户端说找不到命令，应该填什么路径？
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: 你已经试过什么
+      description: 运行过的命令、看过的文档、得到的输出
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: "`dhgleaner doctor` 输出"
+      description: 涉及安装或配置时请贴上，它已脱敏
+      render: text
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境
+      placeholder: macOS 15.5 / Python 3.12 / pipx
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我没有在这个 issue 里粘贴 Zotero API Key 或 `config.local.json` 的内容
+          required: true
