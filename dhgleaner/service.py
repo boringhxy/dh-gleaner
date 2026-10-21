@@ -536,12 +536,16 @@ def collectDoctorChecks(cfg: dict, *, checkZotero: bool = False, checkNetwork: b
         hasConfigFile,
         f"{paths.configLocalPath} ({'存在' if hasConfigFile else '缺失'})",
     ))
-    report.checks.append(DoctorCheck("配置模板（复制它来填密钥）", configTemplatePath().is_file(), report.templatePath))
+    report.checks.append(DoctorCheck(
+        "配置模板（`dhgleaner init` 会替你写入凭据）", configTemplatePath().is_file(), report.templatePath
+    ))
     report.checks.append(DoctorCheck("Python 版本", sys.version_info >= (3, 10), sys.version.split()[0]))
 
     for package, installed in dependencyStatus():
         report.checks.append(DoctorCheck(
-            f"依赖 {package}", installed, "已安装" if installed else "缺失，请重新安装本包（pip install -e .）"
+            f"依赖 {package}",
+            installed,
+            "已安装" if installed else "缺失，说明安装不完整；请按 README「安装」章节用对应方式重装本包",
         ))
 
     for label, path in [
