@@ -25,6 +25,26 @@ JOURNAL_ALIASES = {
     "tsgzz": "图书馆杂志",
     "图书馆论坛": "图书馆论坛",
     "tsglt": "图书馆论坛",
+    # 散篇 harvest 期刊（图情/信息刊，无常设数字人文栏目）
+    "现代情报": "现代情报",
+    "xdqb": "现代情报",
+    "XDQB": "现代情报",
+    "情报科学": "情报科学",
+    "qbkx": "情报科学",
+    "QBKX": "情报科学",
+    "中国图书馆学报": "中国图书馆学报",
+    "jtlsc": "中国图书馆学报",
+    "zgtsgxb": "中国图书馆学报",
+    "国家图书馆学刊": "国家图书馆学刊",
+    "gtxk": "国家图书馆学刊",
+    "gjtxgkx": "国家图书馆学刊",
+    "数字图书馆论坛": "数字图书馆论坛",
+    "dlf": "数字图书馆论坛",
+    "sztsglt": "数字图书馆论坛",
+    "图书情报知识": "图书情报知识",
+    "tsqbzs": "图书情报知识",
+    "信息资源管理学报": "信息资源管理学报",
+    "xxzyglxb": "信息资源管理学报",
 }
 
 #: 「本次不要导入」的口令，与 selection 模块共用
@@ -46,6 +66,18 @@ def knownJournalNames(cfg: dict) -> set[str]:
 
 def availableJournalsText(cfg: dict) -> str:
     return ", ".join(sorted(knownJournalNames(cfg)))
+
+
+def journalConfigByName(cfg: dict, name: str) -> dict:
+    for journal in cfg.get("journals", []):
+        if journal.get("name") == name:
+            return journal
+    return {}
+
+
+def isHarvestOnly(cfg: dict, name: str) -> bool:
+    """该期刊是否只能走 harvest（散篇期刊，无常设数字人文栏目、无稳定当期页）。"""
+    return bool(journalConfigByName(cfg, name).get("harvestOnly"))
 
 
 def buildTarget(year: int | None = None, issue: int | None = None, volume: int | None = None) -> dict | None:
@@ -85,6 +117,11 @@ def resolveCaptureRequest(
     """校验一次 capture 请求，返回 (target, journalName)。"""
     target = buildTarget(year, issue, volume)
     journalName = resolveCaptureJournalName(journal, allJournals, cfg)
+    if journalName and not url and isHarvestOnly(cfg, journalName):
+        raise ValidationError(
+            f"《{journalName}》是散篇期刊（无常设数字人文栏目），请改用 harvest 按年采集，"
+            f"如：dhgleaner harvest --journal {journalName} --year 2026"
+        )
     if url and not journalName:
         raise ValidationError("使用 --url 时必须同时指定 --journal")
     if not target and not url:
@@ -108,6 +145,38 @@ def resolveChannelRequest(
     if not channelName:
         raise ValidationError("请用 --channel 指定栏目名")
     return known[journalName], journalName, channelName
+
+
+#: 支持「按年枚举全目录」harvest 的解析器
+HARVEST_PARSERS = {"founder", "journalx", "magtech"}
+
+
+def resolveHarvestRequest(
+    cfg: dict,
+    journal: str | None = None,
+    year: int | None = None,
+) -> tuple[str, int]:
+    """校验一次 harvest 请求，返回 (journalName, year)。
+
+    journalName 为空串表示 harvest 配置中所有标了 ``harvestOnly`` 的散篇期刊。
+    """
+    journalName = normalizeJournalName(journal)
+    known = {j["name"]: j for j in cfg.get("journals", [])}
+    if journalName:
+        if journalName not in known:
+            raise ValidationError(f"未知期刊: {journalName}。可用期刊: {availableJournalsText(cfg)}")
+        parser = known[journalName].get("parser")
+        if parser not in HARVEST_PARSERS:
+            raise ValidationError(
+                f"《{journalName}》不支持按年 harvest（解析器 {parser}）；请改用 capture 抓取当期。"
+            )
+    if not year:
+        raise ValidationError("请用 year 指定要 harvest 的年份，如 2026")
+    try:
+        yearInt = int(year)
+    except (TypeError, ValueError) as e:
+        raise ValidationError(f"year 不是合法年份: {year}") from e
+    return journalName, yearInt
 
 
 def isSkipToken(selection: str | None) -> bool:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import abc
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from ..models import Article, IssueInfo
 
@@ -11,12 +11,18 @@ from ..models import Article, IssueInfo
 class BaseParser(abc.ABC):
     """期刊解析器抽象基类。两个期刊各实现一个子类，统一输出 Article。"""
 
+    #: 是否支持「按年枚举全目录」的 harvest 流程（散篇采集）。
+    #: 只有 FounderParser / JournalXParser / MagtechParser 置为 True。
+    supportsHarvest = False
+
     def __init__(self, journalName: str, httpCfg: dict):
         self.journalName = journalName
         self.userAgent = httpCfg.get("userAgent", "")
         self.timeout = httpCfg.get("timeout", 30)
         self.maxRetries = httpCfg.get("maxRetries", 3)
         self.retryInterval = httpCfg.get("retryInterval", 30)
+        #: harvest 逐期/逐篇请求之间的礼貌间隔（秒），社区站/开放 API 限速用。
+        self.harvestDelay = httpCfg.get("harvestDelay", 0.6)
 
     @abc.abstractmethod
     def parseCurrentIssue(self, html: str) -> Tuple[IssueInfo, List[Article]]:
@@ -31,3 +37,13 @@ class BaseParser(abc.ABC):
     def fetchAbstracts(self, articles: List[Article]) -> List[Article]:
         """补全摘要（若当期页未直接展示）。默认无操作。"""
         return articles
+
+    def harvestYear(
+        self, year: int, *, withAbstracts: bool = True
+    ) -> Tuple[Optional[IssueInfo], List[Article]]:
+        """按年枚举全目录，返回 (期次信息, 文章列表)；每篇文章保留自己的年卷期。
+
+        仅 `supportsHarvest=True` 的解析器实现。散篇 harvest 流程调用它拿到全年
+        文章后，再由 `dhgleaner.harvest` 统一做前置条目过滤、DH 关键词打标与去重。
+        """
+        raise NotImplementedError(f"{type(self).__name__} 不支持按年 harvest")

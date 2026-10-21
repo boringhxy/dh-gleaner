@@ -9,23 +9,49 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import List, Tuple
+import time
+from typing import List, Optional, Tuple
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse, urlunparse
 
 from bs4 import BeautifulSoup
 
+from ..http_util import FetchBlocked, FetchFailed, fetchHtml
 from ..models import Article, IssueInfo
+from ..textutil import cleanText
 from .base import BaseParser
 
 log = logging.getLogger(__name__)
+
+# harvest（按年枚举 volumn_N.shtml）用到的皮肤正则。仅 harvestYear 路径使用，
+# 不影响经典 noselectrow 皮肤的当期/栏目解析。
+_LIWEN_ISSUE_RE = re.compile(r"(20\d{2})\s*Vol\.?\s*(\d+)\s*\(\s*(\d+)\s*\)")
+_LIWEN_PAGE_RE = re.compile(r"\)\s*:\s*(\d+)\s*-\s*(\d+)")
+_DQML_URL_RE = re.compile(r"/CN/Y(\d{4})/V(\d+)/I(\d+)/")
+_DQML_PAGE_RE = re.compile(r"(20\d{2})\s*[,，]\s*(\d+)\s*\(\s*(\d+)\s*\)\s*:\s*(\d+)\s*-\s*(\d+)")
+_DQML_DOI_RE = re.compile(r"doi[:：]\s*(10\.\d{4,}/\S+)")
+_VOLNUM_RE = re.compile(r"volumn_(\d+)\.shtml")
+_ZHAIYAO_RE = re.compile(r"摘要[：:]\s*(.*?)(?:Abstract[：:]|\bAbstract\b|$)", re.S)
 
 
 class MagtechParser(BaseParser):
     """通用 Magtech/Journy 目录页解析器。"""
 
-    def __init__(self, journalName: str, httpCfg: dict, baseUrl: str = ""):
+    supportsHarvest = True
+
+    def __init__(
+        self,
+        journalName: str,
+        httpCfg: dict,
+        baseUrl: str = "",
+        journalCfg: Optional[dict] = None,
+    ):
         super().__init__(journalName, httpCfg)
         self.baseUrl = baseUrl.rstrip("/")
+        cfg = journalCfg or {}
+        self.archivePath = cfg.get("archivePath", "/CN/article/showOldVolumn.do")
+        self.archiveUrl = cfg.get("archiveUrl", "")
+        self.maxScan = int(cfg.get("maxScan", 40))
+        self.harvestDelay = cfg.get("harvestDelay", self.harvestDelay)
 
     def parseCurrentIssue(self, html: str) -> Tuple[IssueInfo, List[Article]]:
         soup = BeautifulSoup(html, "lxml")
@@ -290,3 +316,216 @@ class MagtechParser(BaseParser):
         parsed = urlparse(base)
         root = f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else base
         return urljoin(root, href)
+
+    # ------------------------------------------------------------------
+    # harvest：按年枚举过刊 volumn_N.shtml（散篇采集用）。
+    # 这段逻辑只在 harvestYear 路径触发，经典 noselectrow 皮肤的当期/栏目解析不受影响。
+    # ------------------------------------------------------------------
+
+    def harvestYear(
+        self, year: int, *, withAbstracts: bool = True
+    ) -> Tuple[Optional[IssueInfo], List[Article]]:
+        if not self.baseUrl:
+            raise ValueError(f"《{self.journalName}》缺少 baseUrl，无法枚举 magtech 过刊页")
+
+        archiveUrl = self.archiveUrl or (self.baseUrl + self.archivePath)
+        archiveHtml = self._fetch(archiveUrl)
+        volNums = sorted({int(n) for n in _VOLNUM_RE.findall(archiveHtml)}, reverse=True)
+        log.info("《%s》过刊页发现 %d 个 volumn，按年 harvest %d", self.journalName, len(volNums), year)
+
+        articles: List[Article] = []
+        olderStreak = 0
+        for volNum in volNums[: self.maxScan]:
+            vurl = f"{self.baseUrl}/CN/volumn/volumn_{volNum}.shtml"
+            try:
+                vhtml = self._fetch(vurl)
+            except (FetchBlocked, FetchFailed) as e:
+                log.info("《%s》volumn_%d 抓取失败，跳过: %s", self.journalName, volNum, e)
+                continue
+            time.sleep(self.harvestDelay)
+
+            parsed = self._parseVolumnPage(BeautifulSoup(vhtml, "lxml"))
+            parsed = [a for a in parsed if (a.title or "").strip()]
+            if not parsed:
+                continue
+
+            volYear = max((a.year or 0) for a in parsed)
+            if volYear == 0:
+                volYear = self._parseIssueInfo(BeautifulSoup(vhtml, "lxml")).year
+            if volYear > year:
+                continue
+            if volYear < year:
+                olderStreak += 1
+                if olderStreak >= 3:  # volumn 编号倒序≈时间倒序，连续 3 期更老即停
+                    break
+                continue
+            olderStreak = 0
+
+            parsed = [a for a in parsed if (a.year or year) == year]
+            for article in parsed:
+                if not article.year:
+                    article.year = year
+            if withAbstracts:
+                self._fillHarvestAbstracts(parsed)
+            articles.extend(parsed)
+
+        log.info("《%s》%d 年 harvest 完成: %d 篇", self.journalName, year, len(articles))
+        return IssueInfo(year=year, volume=None, issue=0), articles
+
+    def _parseVolumnPage(self, soup: BeautifulSoup) -> List[Article]:
+        """自动识别三种 magtech 皮肤：ul.lunwen / div.dqml / 经典 noselectrow。"""
+        if soup.find("ul", class_="lunwen"):
+            return self._parseLunwenList(soup)
+        if soup.find("div", class_="dqml"):
+            return self._parseDqmlList(soup)
+        issue = self._parseIssueInfo(soup)
+        return self._parseArticles(soup, issue, sourceType="harvest")
+
+    def _fillHarvestAbstracts(self, articles: List[Article]) -> None:
+        """lunwen/dqml 皮肤列表页无内联摘要，逐篇抓详情页补全（经典皮肤已有摘要则跳过）。"""
+        for article in articles:
+            if article.abstract or not article.articleUrl:
+                continue
+            try:
+                article.abstract = self._detailAbstractZh(article.articleUrl)
+            except (FetchBlocked, FetchFailed) as e:
+                log.debug("《%s》详情摘要抓取失败 %s: %s", self.journalName, article.articleUrl, e)
+            time.sleep(self.harvestDelay)
+
+    def _detailAbstractZh(self, url: str) -> str:
+        """抓详情页 div#zhaiyao 所在 panel 的 .panel-body，取「摘要：」到「Abstract」之间的中文摘要。
+
+        没有 zhaiyao 面板或面板里没有「摘要：」标记（如专题引言、无摘要的编者按）时返回空串，
+        避免把「引用本文…导出引用管理器」这类页脚误当摘要。
+        """
+        soup = BeautifulSoup(self._fetch(url), "lxml")
+        head = soup.find("div", id="zhaiyao") or soup.find("a", id="abstract")
+        panel = head.find_parent("div", class_="panel") if head else None
+        body = panel.find("div", class_="panel-body") if panel else None
+        if body is None:
+            return ""
+        text = body.get_text(" ", strip=True)
+        match = _ZHAIYAO_RE.search(text)
+        if not match:
+            return ""
+        return cleanText(re.sub(r"引用本文.*$", "", match.group(1), flags=re.S))
+
+    def _fetch(self, url: str) -> str:
+        return fetchHtml(
+            url,
+            self.userAgent,
+            timeout=self.timeout,
+            maxRetries=self.maxRetries,
+            retryInterval=self.retryInterval,
+        )
+
+    def _parseLunwenList(self, soup: BeautifulSoup) -> List[Article]:
+        """ul.lunwen 皮肤（情报科学等）：每个 <ul class='lunwen'> 是一篇文章。"""
+        articles: List[Article] = []
+        for ul in soup.find_all("ul", class_="lunwen"):
+            current: Optional[Article] = None
+            for li in ul.find_all("li", recursive=False):
+                classes = " ".join(li.get("class", []))
+                if "biaoti" in classes:
+                    anchor = li.find("a", href=True)
+                    title = cleanText((anchor or li).get_text(" ", strip=True))
+                    href = anchor.get("href", "") if anchor else ""
+                    current = Article(
+                        journal=self.journalName,
+                        year=0,
+                        volume=None,
+                        issue=0,
+                        title=title,
+                        sourceType="harvest",
+                        articleUrl=self._absUrl(href),
+                    )
+                    articles.append(current)
+                elif current is None:
+                    continue
+                elif "zuozhe" in classes:
+                    current.authors = [
+                        a.strip() for a in re.split(r"[,，;；、]", li.get_text(" ", strip=True)) if a.strip()
+                    ]
+                elif not classes:
+                    text = li.get_text(" ", strip=True)
+                    issueMatch = _LIWEN_ISSUE_RE.search(text)
+                    if issueMatch:
+                        current.year = int(issueMatch.group(1))
+                        current.volume = int(issueMatch.group(2))
+                        current.issue = int(issueMatch.group(3))
+                        current.issueDisplay = f"{issueMatch.group(1)}, {issueMatch.group(2)}({issueMatch.group(3)})"
+                    pageMatch = _LIWEN_PAGE_RE.search(text)
+                    if pageMatch:
+                        current.startPage = int(pageMatch.group(1))
+                        current.endPage = int(pageMatch.group(2))
+        return [a for a in articles if (a.title or "").strip()]
+
+    def _parseDqmlList(self, soup: BeautifulSoup) -> List[Article]:
+        """div.dqml 皮肤（图书情报知识 / 信息资源管理学报等 whu 站）：每篇一个 div.dqml。
+
+        题名链接两种形态：卷首语 /CN/Y2026/V43/I3/1（年卷期在 URL 里），正文用 DOI 式
+        /CN/10.13366/j.dik.2026.03.006（年卷期改从 dqml_wzn「作者 2026, 43 (3): 6-15.」取）。
+        doi.org 锚、摘要/PDF 锚都不含 /CN/ 路径，故按「首个 /CN/ 且非摘要/PDF 的锚」取题名。
+        """
+        articles: List[Article] = []
+        for block in soup.find_all("div", class_="dqml"):
+            anchor = None
+            for candidate in block.find_all("a"):
+                href = candidate.get("href", "")
+                text = candidate.get_text(" ", strip=True)
+                if "/CN/" not in href or text in ("摘要", "PDF"):
+                    continue
+                anchor = candidate
+                break
+            if not anchor:
+                continue
+            title = cleanText(anchor.get_text(" ", strip=True))
+            if not title:
+                continue
+            url = self._absUrl(anchor.get("href", ""))
+
+            year = 0
+            volume: Optional[int] = None
+            issue = 0
+            startPage = endPage = 0
+            issueDisplay = ""
+            urlMatch = _DQML_URL_RE.search(url)
+            if urlMatch:
+                year, volume, issue = int(urlMatch.group(1)), int(urlMatch.group(2)), int(urlMatch.group(3))
+                issueDisplay = f"{year}, {volume}({issue})"
+
+            authors: List[str] = []
+            doi = ""
+            wzText = block.find("div", class_="dqml_wzn")
+            if wzText:
+                wtext = wzText.get_text(" ", strip=True)
+                pageMatch = _DQML_PAGE_RE.search(wtext)
+                if pageMatch:
+                    startPage, endPage = int(pageMatch.group(4)), int(pageMatch.group(5))
+                    if not year:
+                        year, volume, issue = int(pageMatch.group(1)), int(pageMatch.group(2)), int(pageMatch.group(3))
+                        issueDisplay = f"{year}, {volume}({issue})"
+                doiMatch = _DQML_DOI_RE.search(wtext)
+                if doiMatch:
+                    doi = doiMatch.group(1).rstrip(".")
+                authorText = re.split(r"20\d{2}\s*[,，]", wtext, maxsplit=1)[0]
+                authors = [
+                    a.strip() for a in re.split(r"[，,;；、\s]+", authorText)
+                    if a.strip() and a.strip() not in ("摘要", "PDF")
+                ]
+
+            articles.append(Article(
+                journal=self.journalName,
+                year=year,
+                volume=volume,
+                issue=issue,
+                title=title,
+                authors=authors,
+                doi=doi,
+                startPage=startPage,
+                endPage=endPage,
+                issueDisplay=issueDisplay,
+                sourceType="harvest",
+                articleUrl=url,
+            ))
+        return articles

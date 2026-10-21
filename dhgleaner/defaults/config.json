@@ -111,6 +111,87 @@
       "historyUrlTemplate": "http://tsglt.zslib.com.cn/CN/Y{year}/V{volume}/I{issue}",
       "volumeYearBase": 2026,
       "volumeBase": 46
+    },
+    {
+      "name": "现代情报",
+      "url": "https://www.xdqb.net/",
+      "currentIssueUrl": "",
+      "parser": "founder",
+      "harvestOnly": true,
+      "siteId": 1084,
+      "referer": "https://www.xdqb.net/",
+      "publishRule": "散篇 harvest 期刊；无常设数字人文栏目，走方正 Founder 开放 API",
+      "autoDownloadPdf": false,
+      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF"
+    },
+    {
+      "name": "情报科学",
+      "url": "https://journal12.magtechjournal.com/jwk3_qbkx",
+      "currentIssueUrl": "",
+      "archiveUrl": "https://journal12.magtechjournal.com/jwk3_qbkx/CN/article/showOldVolumn.do",
+      "archivePath": "/CN/article/showOldVolumn.do",
+      "parser": "magtech",
+      "harvestOnly": true,
+      "publishRule": "散篇 harvest 期刊；无常设数字人文栏目（magtech/ul.lunwen 皮肤）",
+      "autoDownloadPdf": false,
+      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF"
+    },
+    {
+      "name": "中国图书馆学报",
+      "url": "https://www.jlis.cn/jtlsc/ch/reader/",
+      "currentIssueUrl": "",
+      "parser": "journalx",
+      "harvestOnly": true,
+      "maxQuarter": 12,
+      "publishRule": "散篇 harvest 期刊；无常设数字人文栏目（JournalX .NET）",
+      "autoDownloadPdf": false,
+      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF"
+    },
+    {
+      "name": "国家图书馆学刊",
+      "url": "https://gtxk.nlc.cn/ch/reader/",
+      "currentIssueUrl": "",
+      "parser": "journalx",
+      "harvestOnly": true,
+      "maxQuarter": 12,
+      "publishRule": "散篇 harvest 期刊；无常设数字人文栏目（JournalX .NET）",
+      "autoDownloadPdf": false,
+      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF"
+    },
+    {
+      "name": "数字图书馆论坛",
+      "url": "http://journals.istic.ac.cn/dlf/ch/reader/",
+      "currentIssueUrl": "",
+      "parser": "journalx",
+      "harvestOnly": true,
+      "maxQuarter": 12,
+      "publishRule": "散篇 harvest 期刊；无常设数字人文栏目（ISTIC JournalX .NET）",
+      "autoDownloadPdf": false,
+      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF"
+    },
+    {
+      "name": "图书情报知识",
+      "url": "https://dik.whu.edu.cn/jwk3/tsqbzs",
+      "currentIssueUrl": "",
+      "archiveUrl": "https://dik.whu.edu.cn/jwk3/tsqbzs/CN/article/showOldVolumn.do",
+      "archivePath": "/CN/article/showOldVolumn.do",
+      "parser": "magtech",
+      "harvestOnly": true,
+      "publishRule": "散篇 harvest 期刊；无常设数字人文栏目（magtech/div.dqml 皮肤）",
+      "autoDownloadPdf": false,
+      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF"
+    },
+    {
+      "name": "信息资源管理学报",
+      "url": "https://jirm.whu.edu.cn/jwk3/xxzyglxb",
+      "currentIssueUrl": "",
+      "archiveUrl": "https://jirm.whu.edu.cn/jwk3/xxzyglxb/CN/article/showOldVolumn.do",
+      "archivePath": "/CN/article/showOldVolumn.do",
+      "parser": "magtech",
+      "harvestOnly": true,
+      "publishRule": "散篇 harvest 期刊；无常设数字人文栏目（magtech/div.dqml 皮肤）",
+      "autoDownloadPdf": false,
+      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF"
     }
   ],
   "zotero": {
@@ -129,7 +210,14 @@
       "中国数字人文": "《中国数字人文》",
       "数位典藏与数位人文": "《数位典藏与数位人文》",
       "图书馆杂志": "《图书馆杂志》",
-      "图书馆论坛": "《图书馆论坛》"
+      "图书馆论坛": "《图书馆论坛》",
+      "现代情报": "《现代情报》",
+      "情报科学": "《情报科学》",
+      "中国图书馆学报": "《中国图书馆学报》",
+      "国家图书馆学刊": "《国家图书馆学刊》",
+      "数字图书馆论坛": "《数字图书馆论坛》",
+      "图书情报知识": "《图书情报知识》",
+      "信息资源管理学报": "《信息资源管理学报》"
     },
     "autoCreateCollection": false
   },

@@ -39,6 +39,7 @@ def listJournals() -> dict:
             "parser": journal.get("parser", ""),
             "hasCurrentIssueUrl": bool(journal.get("currentIssueUrl")),
             "currentIssueUrl": journal.get("currentIssueUrl", ""),
+            "harvestOnly": bool(journal.get("harvestOnly")),
             "channels": [source.get("channel", "") for source in channelSources],
             "autoDownloadPdf": bool(journal.get("autoDownloadPdf", False)),
             "pdfNote": journal.get("pdfNote", ""),
@@ -48,7 +49,7 @@ def listJournals() -> dict:
         **dataDirInfo(),
         count=len(journals),
         journals=journals,
-        note="抓取公开目录页，不绕过验证码或登录；『先筛选、后导入』是硬约束。",
+        note="抓取公开目录页，不绕过验证码或登录；『先筛选、后导入』是硬约束。harvestOnly=true 的散篇期刊用 harvest_year 按年采集。",
     )
 
 

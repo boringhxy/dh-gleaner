@@ -51,6 +51,9 @@ class Article:
     title: str = ""
     authors: list[str] = field(default_factory=list)
     abstract: str = ""
+    keywords: str = ""             # 原站点中文关键词（散篇 harvest 时可能有值）
+    dhMatched: list[str] = field(default_factory=list)      # 命中「数字人文」表的词
+    histAiMatched: list[str] = field(default_factory=list)  # 命中「历史学+AI」共现的词
     startPage: int = 0
     endPage: int = 0
     doi: str = ""

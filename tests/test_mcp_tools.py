@@ -65,6 +65,7 @@ EXPECTED_TOOLS = {
     "run_doctor",
     "capture_issue",
     "capture_channel",
+    "harvest_year",
     "export_review_spreadsheet",
     "mark_pending_skipped",
     "import_to_zotero",
@@ -73,7 +74,7 @@ EXPECTED_TOOLS = {
 
 class RegistrationTests(unittest.TestCase):
     @unittest.skipUnless(_MCP_AVAILABLE, "需要 mcp 依赖（pip install -e '.[mcp]'）才能构建 server")
-    def testAllThirteenToolsAreRegistered(self):
+    def testAllFourteenToolsAreRegistered(self):
         server = buildServer()
         names = {tool.name for tool in server._tool_manager.list_tools()}
         self.assertEqual(names, EXPECTED_TOOLS)
@@ -100,7 +101,11 @@ class ReadToolTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         names = [journal["name"] for journal in result["journals"]]
         self.assertIn("图书馆论坛", names)
-        self.assertEqual(len(names), 6)
+        captureJournals = [j for j in result["journals"] if not j["harvestOnly"]]
+        harvestJournals = [j for j in result["journals"] if j["harvestOnly"]]
+        self.assertEqual(len(captureJournals), 6)
+        self.assertEqual(len(harvestJournals), 7)
+        self.assertIn("现代情报", [j["name"] for j in harvestJournals])
         cnki = next(j for j in result["journals"] if j["name"] == "数字人文")
         self.assertIn("验证码", cnki["pdfNote"])
 

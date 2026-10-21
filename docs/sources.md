@@ -18,6 +18,18 @@
 | 图书馆杂志 | `magtech` | 期次抓取、栏目抓取 | 支持「数字人文」栏目分页 |
 | 图书馆论坛 | `magtech` | 期次抓取 | 支持历史 URL 模板与卷号推算 |
 
+以下散篇期刊标了 `harvestOnly: true`，只走 `harvest` 按年采集（不进 `capture --all-journals`，默认不下载 PDF）：
+
+| 期刊 | parser | 主要抓取方式 | 备注 |
+|------|--------|--------------|------|
+| 现代情报 | `founder` | 按年 harvest | 方正 rc-pub 开放 JSON API，内联中文摘要 |
+| 情报科学 | `magtech` | 按年 harvest | 过刊库 `ul.lunwen` 皮肤，逐篇抓详情摘要 |
+| 中国图书馆学报 | `journalx` | 按年 harvest | `issue_list.aspx` 按季枚举 + `view_abstract` 详情 |
+| 国家图书馆学刊 | `journalx` | 按年 harvest | 同上 |
+| 数字图书馆论坛 | `journalx` | 按年 harvest | 同上 |
+| 图书情报知识 | `magtech` | 按年 harvest | 过刊库 `div.dqml` 皮肤（DOI 式题名链接） |
+| 信息资源管理学报 | `magtech` | 按年 harvest | 同上 |
+
 ## `journy3`
 
 适用：Journy / Magtech 系站点中 HTML 结构与《数字人文研究》一致者。
@@ -43,6 +55,7 @@
 - 用 `volumeYearBase` / `volumeBase` 推算卷号。
 - 支持栏目页分页（识别 `changePage(...)` 并合并全部页）。
 - 抽取每篇文章自己的 `issueDisplay` 与 `totalIssue`。
+- 按年 harvest（`supportsHarvest`）：从过刊库页枚举 `volumn_N.shtml`，自动识别 `ul.lunwen`（情报科学）/ `div.dqml`（图书情报知识、信息资源管理学报）/ 经典 `noselectrow` 三种皮肤；`lunwen`/`dqml` 列表页无内联摘要时逐篇抓详情页 `div#zhaiyao` 面板补全。经典皮肤的当期/栏目解析路径不受 harvest 改动影响。
 
 配置示例：
 
@@ -79,6 +92,38 @@
 - 标题中无关内容占比过高时，应标记 `suspect`。
 - 页面缺少配置中的 `requiredPageText` 时，应标记 `suspect` 或直接失败。
 - 不能把站点首页、数据库宣传页或 "Read More" 列表当作有效文章清单。
+
+## `founder`
+
+适用：把目录托管在方正 `publish.founderss.cn` 发布平台的期刊（如《现代情报》，`siteId=1084`）。这类站点没有可直接解析的单期 HTML 目录页，只有两个开放 JSON 接口。
+
+能力（仅 `harvestYear`，`parseCurrentIssue` 抛 `NotImplementedError`）：
+
+- `getPeriodTree?siteId=` → 年 → 期 → `periodId` 树，取目标年的期次。
+- `getArticlesByPeriodicalIdGroupByColumn/{pid}?siteId=` → 按栏目分组的文章，内联中文摘要 `summary`、关键词 `keyword`、起止页、DOI；`articleUrl` 用 `https://doi.org/{doi}`。
+- 逐期请求之间按 `harvestDelay` 限速；401/403/412 由 `fetchJson` 立即抛 `FetchBlocked`（不绕过）。
+
+配置示例：
+
+```json
+{ "parser": "founder", "siteId": 1084, "referer": "https://www.xdqb.net/", "harvestOnly": true }
+```
+
+## `journalx`
+
+适用：`.../ch/reader/` 结构的 JournalX（.NET aspx）站点，如《中国图书馆学报》(jlis)、《国家图书馆学刊》(gtxk)、《数字图书馆论坛》(dlf)。
+
+能力：
+
+- 单期解析与按年 harvest 共用 `_rows`：列表页 `issue_list.aspx?year_id=YYYY&quarter_id=N` 每篇 3 个 `<tr>`（题名 / 作者 / 年期页），按 `file_no` 去重，跳过嵌套表格包裹行与前置条目。
+- harvest 按 `quarter_id=1..maxQuarter` 枚举，连续 2 期空即停；`withAbstracts` 时逐篇抓 `view_abstract.aspx?file_no=` 详情补全中文摘要 / 关键词（关键词混入句号或过长则判为污染丢弃）。
+- 年期页正则兼容带页码（jlis）与仅 `年,卷(期)`（gtxk）两种形态。
+
+配置示例：
+
+```json
+{ "parser": "journalx", "url": "https://www.jlis.cn/jtlsc/ch/reader/", "maxQuarter": 12, "harvestOnly": true }
+```
 
 ## 新增一份期刊
 

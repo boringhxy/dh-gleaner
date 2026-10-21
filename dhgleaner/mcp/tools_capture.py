@@ -12,6 +12,9 @@ from ..paths import getPaths
 from ..review_spreadsheet import exportReviewSpreadsheet as writeReviewSpreadsheet
 from ..selection import resolveSkipAll
 from ..service import (
+    captureHarvest,
+)
+from ..service import (
     captureIssue as _captureIssue,
 )
 from ..service import (
@@ -21,7 +24,12 @@ from ..service import (
     savePending,
     stateManager,
 )
-from ..validation import ValidationError, resolveCaptureRequest, resolveChannelRequest
+from ..validation import (
+    ValidationError,
+    resolveCaptureRequest,
+    resolveChannelRequest,
+    resolveHarvestRequest,
+)
 from .errors import classifyFailure, failure, success
 from .payloads import capturePayload, dataDirInfo
 
@@ -144,6 +152,57 @@ def captureChannel(
     )
 
 
+def harvestYear(
+    year: int | None = None,
+    journal: str = "",
+    withAbstracts: bool = True,
+    dhOnly: bool = True,
+    dedupe: bool = False,
+    dryRun: bool = True,
+    limit: int = 200,
+) -> dict:
+    """按年枚举散篇期刊的全年目录，并按 DH 关键词筛选（不写 Zotero、不下 PDF）。
+
+    针对没有稳定「当期目录页」、只能逐年翻过刊库的散篇期刊（现代情报、情报科学、
+    中国图书馆学报、国家图书馆学刊、数字图书馆论坛、图书情报知识、信息资源管理学报等）。
+    结果同样落到 pending/review，因此 screen / import 下游照常可用。
+
+    Args:
+        year: 目标年份（必填），如 2026。
+        journal: 期刊名，支持别名；留空则 harvest 配置中所有 harvestOnly 散篇期刊。
+        withAbstracts: 是否抓摘要（默认 True）。关闭更快，但 DH 关键词只按标题命中。
+        dhOnly: True（默认）只保留命中 DH 关键词表的文章；False 保留全年全目录并打标签。
+        dedupe: 按 state.json 过滤已处理文章。
+        dryRun: 默认 True，只抓不落盘；设为 False 才会覆盖 pending.json / review.md。
+        limit: 返回的文章行数上限。
+    """
+    cfg = loadConfig()
+    try:
+        journalName, yearInt = resolveHarvestRequest(cfg, journal=journal, year=year)
+    except ValidationError as e:
+        return failure(str(e), kind="invalid_input")
+
+    try:
+        outcome = captureHarvest(
+            cfg,
+            year=yearInt,
+            journalName=journalName,
+            withAbstracts=withAbstracts,
+            dedupe=dedupe,
+            dhOnly=dhOnly,
+            dryRun=dryRun,
+        )
+    except FetchBlocked as e:
+        return failure(str(e), error=e, kind="blocked")
+    except Exception as e:
+        return failure(f"harvest 过程出错：{e}", error=e)
+    return _finishCapture(
+        outcome,
+        dryRun,
+        hint="该刊可能不支持按年 harvest，或过刊库地址已变更；可用 capture_issue 抓当期。",
+    )
+
+
 def exportReviewSpreadsheet(output: str = "") -> dict:
     """把当前待筛清单导出成 Excel 勾选表（写本数据目录）。
 
@@ -202,6 +261,8 @@ def register(server) -> None:
                     description="抓取某刊某期目录与摘要（默认 dryRun，只抓不落盘；不写 Zotero）")
     server.add_tool(captureChannel, name="capture_channel",
                     description="按栏目抓取跨期文章清单（默认 dryRun；不写 Zotero）")
+    server.add_tool(harvestYear, name="harvest_year",
+                    description="按年枚举散篇期刊全年目录并按 DH 关键词筛选（默认 dryRun；不写 Zotero）")
     server.add_tool(exportReviewSpreadsheet, name="export_review_spreadsheet",
                     description="把待筛清单导出为 Excel 勾选表（写本数据目录）")
     server.add_tool(markPendingSkipped, name="mark_pending_skipped",
@@ -212,6 +273,7 @@ __all__ = [
     "captureChannel",
     "captureIssue",
     "exportReviewSpreadsheet",
+    "harvestYear",
     "markPendingSkipped",
     "register",
 ]

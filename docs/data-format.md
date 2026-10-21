@@ -23,11 +23,14 @@
 | `title` | string | 题名 |
 | `authors` | array | 作者列表 |
 | `abstract` | string | 摘要，可能为空 |
+| `keywords` | string | 原站点中文关键词，可能为空（散篇 harvest 时常有值） |
+| `dhMatched` | array | 命中「数字人文」领域词的词（领域词任一命中即算 DH；计算方法词不单独算） |
+| `histAiMatched` | array | 命中「历史学+AI」表的词（历史词与计算词共现才非空） |
 | `startPage` / `endPage` | int | 起止页码 |
 | `doi` | string | DOI，可能为空 |
 | `issueDisplay` | string | 原站点显示的期次，例如 `20xx, x(x)` |
 | `totalIssue` | int / null | 总期号或站点内部期号 |
-| `sourceType` | string | `issue`、`channel` 或 `manual_curated` |
+| `sourceType` | string | `issue`、`channel`、`harvest` 或 `manual_curated` |
 | `sourceNote` | string | 来源说明、降级原因或校正说明 |
 | `articleUrl` | string | 文章页 URL |
 | `pdfUrl` | string | PDF URL，可能为空 |

@@ -91,6 +91,49 @@ def fetchHtml(
     raise FetchFailed(url, maxRetries, lastErr)
 
 
+def fetchJson(
+    url: str,
+    userAgent: str,
+    timeout: int = 30,
+    maxRetries: int = 3,
+    retryInterval: int = 30,
+    referer: str = "",
+):
+    """获取 JSON 接口，与 `fetchHtml` 共用同一套分级重试与拒绝访问语义。
+
+    用于方正 Founder rc-pub 这类开放 JSON API。同样：401/403/412 立即抛
+    `FetchBlocked`（不绕过），429/5xx 退避重试，耗尽后抛 `FetchFailed`。
+
+    Returns:
+        解析后的 JSON（dict / list，取决于接口）。
+    Raises:
+        FetchBlocked: 站点返回 401/403/412。
+        FetchFailed: 重试耗尽仍失败，或响应不是合法 JSON。
+    """
+    headers = {"User-Agent": userAgent, "Accept": "application/json"}
+    if referer:
+        headers["Referer"] = referer
+    lastErr: object = None
+    for attempt in range(1, maxRetries + 1):
+        try:
+            resp = requests.get(url, headers=headers, timeout=timeout)
+            if resp.status_code in BLOCKING_STATUS:
+                log.warning("接口拒绝访问 [HTTP %d] %s，不再重试", resp.status_code, url)
+                raise FetchBlocked(url, resp.status_code)
+            if _isRetryableStatus(resp.status_code):
+                raise requests.HTTPError(f"HTTP {resp.status_code}（临时故障，可重试）", response=resp)
+            resp.raise_for_status()
+            return resp.json()
+        except FetchBlocked:
+            raise
+        except Exception as e:
+            lastErr = e
+            log.warning("接口请求失败 [%d/%d] %s: %s", attempt, maxRetries, url, e)
+            if attempt < maxRetries:
+                time.sleep(retryInterval)
+    raise FetchFailed(url, maxRetries, lastErr)
+
+
 def downloadFile(
     url: str,
     savePath: str,

@@ -229,10 +229,10 @@ Example client configuration:
 }
 ```
 
-The server exposes 13 tools:
+The server exposes 14 tools:
 
 - **Read-only (8)**: `list_journals`, `get_capture_status`, `list_pending_articles`, `get_article_abstract`, `search_pending_articles`, `preview_import`, `get_import_report`, `run_doctor`
-- **Local writes (4)**: `capture_issue`, `capture_channel`, `export_review_spreadsheet`, `mark_pending_skipped`
+- **Local writes (5)**: `capture_issue`, `capture_channel`, `harvest_year`, `export_review_spreadsheet`, `mark_pending_skipped`
 - **Zotero write (1)**: `import_to_zotero`
 
 `import_to_zotero` **refuses by default**. It writes only when both `confirm=true` and `dryRun=false` are supplied. Failures come back as structured results carrying a `failureKind` (`network`, `blocked`, `captcha`, `empty_parse`, `issue_mismatch`, `not_configured`, `invalid_input`, `no_pending`) so the client can decide what to do next.

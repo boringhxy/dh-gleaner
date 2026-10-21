@@ -55,7 +55,8 @@ ruff check .
 - 筛选篮文件容错（脏 JSON 降级为空篮而非崩溃）。
 - Zotero 查重翻页与归一化比较。
 - 上手命令 init / init-collections（默认只预览，`--yes` 才写 Zotero）与凭据落盘。
-- 四种解析器的样例解析（journy3 / cnki_cbpt / magtech / generic_html）。
+- 四种当期解析器的样例解析（journy3 / cnki_cbpt / magtech / generic_html）。
+- 散篇 harvest：关键词双表打标（数字人文任一命中 / 历史学+AI 共现 / 陷阱词排除 / 英文缩写大小写敏感）、前置条目过滤、`founder` API 字段映射、`journalx` 列表去重、`magtech` 的 `lunwen`/`dqml` 皮肤识别、`harvestJournal`/`harvestAll` 的 dhOnly 与轮转选择（`tests/test_harvest.py`，全部离线桩，不发网络请求）。
 - Magtech 历史 URL archive 定位、模板 fallback 与卷号推算。
 - Magtech 栏目分页、期次显示与 PDF 大小清洗。
 - 抓取质量校验。

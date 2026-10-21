@@ -57,6 +57,7 @@ from .selection_basket import (
     selectedArticles,
 )
 from .service import (
+    captureHarvest,
     captureIssue,
     captureJournalChannel,
     collectDoctorChecks,
@@ -71,7 +72,12 @@ from .service import (
     stateManager,
     writeTextArtifact,
 )
-from .validation import ValidationError, resolveCaptureRequest, resolveChannelRequest
+from .validation import (
+    ValidationError,
+    resolveCaptureRequest,
+    resolveChannelRequest,
+    resolveHarvestRequest,
+)
 from .zotero_client import ZoteroClient
 
 
@@ -322,6 +328,48 @@ def cmdCaptureChannel(args, cfg):
         print(f"本次失败状态已写入 {paths.captureStatus}")
 
 
+def cmdHarvest(args, cfg):
+    """按年 harvest 散篇期刊：全年全目录 → DH 关键词筛 → 落盘待筛清单。
+
+    与 capture 并列的第三种采集流程，同样只写 pending/review，不碰 Zotero、不下 PDF。
+    """
+    try:
+        journalName, year = resolveHarvestRequest(cfg, journal=args.journal, year=args.year)
+    except ValidationError as e:
+        _fail(str(e))
+
+    outcome = captureHarvest(
+        cfg,
+        year=year,
+        journalName=journalName,
+        withAbstracts=not args.no_abstracts,
+        dedupe=bool(args.dedupe),
+        dhOnly=not args.all_catalog,
+        dryRun=bool(args.dry_run),
+    )
+    print(outcome.markdown)
+
+    paths = getPaths()
+    scope = f"《{journalName}》" if journalName else "全部散篇期刊"
+    if outcome.status == "success":
+        kept = "全目录" if args.all_catalog else "DH 命中文章"
+        print(f"\n--- {year} 年 {scope} harvest 完成：保留{kept} {outcome.articleCount} 篇，筛选清单已保存到 {paths.review} ---")
+        if outcome.backups:
+            print(f"已自动备份旧筛选数据: {'；'.join(str(path) for path in outcome.backups)}")
+        print("本阶段不会导入 Zotero，也不会下载 PDF。请筛选编号后再运行 import --selection。")
+    elif outcome.status == "suspect":
+        print(f"\n--- ⚠️ harvest 疑似误抓，未覆盖原有筛选清单: {paths.review} ---")
+        print(f"原因: {outcome.reason}")
+        print(f"本次 suspect 状态已写入 {paths.captureStatus}；当前 review.md 仍是上一次成功捕获的旧内容。")
+    else:
+        print(f"\n--- ⚠️ {year} 年 {scope} 未 harvest 到文章，已保留原有筛选清单: {paths.review} ---")
+        if outcome.reason:
+            print(f"原因: {outcome.reason}")
+        print(f"本次失败状态已写入 {paths.captureStatus}")
+        if args.dry_run:
+            print("（本次为 --dry-run 预览，未落盘；去掉 --dry-run 可写入待筛清单。）")
+
+
 # --------------------------------------------------------------------------
 # 阶段二：查看与筛选
 # --------------------------------------------------------------------------
@@ -553,6 +601,14 @@ def main():
     pChan.add_argument("--url", help="手动指定栏目页 URL；未指定时使用 config.json 中的 channelSources")
     pChan.add_argument("--dedupe", action="store_true", help="按 state.json 过滤已处理文章")
 
+    pHar = sub.add_parser("harvest", help="按年枚举散篇期刊全目录并按 DH 关键词筛选")
+    pHar.add_argument("--journal", help="指定期刊名；留空则 harvest 配置中所有 harvestOnly 散篇期刊")
+    pHar.add_argument("--year", type=int, required=True, help="目标年份，如 2026")
+    pHar.add_argument("--no-abstracts", action="store_true", help="不抓摘要（更快，但 DH 关键词只按标题命中）")
+    pHar.add_argument("--all-catalog", action="store_true", help="保留全年全目录并打 DH 标签，而非只留 DH 命中文章")
+    pHar.add_argument("--dedupe", action="store_true", help="按 state.json 过滤已处理文章")
+    pHar.add_argument("--dry-run", action="store_true", help="只打印结果，不覆盖 pending/review")
+
     pRev = sub.add_parser("review", help="查看最近一次捕获的目录和摘要筛选清单")
 
     pExport = sub.add_parser("export-review", help="导出 Excel 筛选表，方便在表格软件中勾选文章")
@@ -593,7 +649,7 @@ def main():
 
     # 子命令之后也允许写 --data-dir，两种位置等价；
     # default=SUPPRESS 是关键：否则子解析器会用默认值覆盖顶层已解析的值。
-    for subParser in (pCap, pChan, pRev, pExport, pScreen, pImp, pDoc, pAbs, pInit, pInitColl):
+    for subParser in (pCap, pChan, pHar, pRev, pExport, pScreen, pImp, pDoc, pAbs, pInit, pInitColl):
         subParser.add_argument("--data-dir", default=argparse.SUPPRESS, help=dataDirHelp)
 
     args = parser.parse_args()
@@ -608,6 +664,7 @@ def main():
     handlers = {
         "capture": cmdCapture,
         "capture-channel": cmdCaptureChannel,
+        "harvest": cmdHarvest,
         "review": cmdReview,
         "export-review": cmdExportReview,
         "screen": cmdScreen,

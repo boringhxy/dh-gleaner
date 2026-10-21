@@ -3,7 +3,7 @@
 ## 总体流程
 
 ```text
-指定期刊/年/期（或栏目、目录页 URL）
+指定期刊/年/期（或栏目、目录页 URL，或按年 harvest 散篇期刊）
   -> 抓取目录、摘要与元数据
   -> 抓取质量校验
   -> 成功：生成筛选清单，并备份旧清单
@@ -64,6 +64,27 @@ dhgleaner capture --journal "期刊名" --url "目录页URL"
 - 用 `generic_html` 或专用 parser 尽量抽取题名、作者、摘要、链接。
 - 页面若是平台宣传、导航或推荐内容，应标记为 `suspect`。
 - 作者或摘要缺失时仍可生成清单，但要在 `note` 或 `sourceNote` 里说明降级原因。
+
+## 工作流 D：散篇 harvest（按年枚举 + 关键词筛）
+
+适用：没有常设「数字人文」栏目、DH 内容以散篇混在各栏目，且当期目录页不稳定、只能逐年翻过刊库的图情/信息刊（配置里标了 `harvestOnly: true`）。
+
+```bash
+dhgleaner harvest --year 2026                    # 所有 harvestOnly 散篇期刊
+dhgleaner harvest --journal "现代情报" --year 2026  # 只 harvest 某一刊
+dhgleaner harvest --year 2026 --all-catalog      # 保留全年全目录并打 DH 标签
+dhgleaner harvest --year 2026 --no-abstracts     # 不抓摘要，关键词只按标题命中
+dhgleaner harvest --year 2026 --dedupe           # 按 state.json 过滤已处理文章
+dhgleaner harvest --year 2026 --dry-run          # 只打印，不覆盖 pending/review
+```
+
+要求与行为：
+
+- 解析器需实现 `supportsHarvest` 与 `harvestYear(year)`：`founder`（方正 JSON API）、`journalx`（`issue_list.aspx` 按季枚举）、`magtech`（过刊库 `volumn_N.shtml`，自动识别 `ul.lunwen` / `div.dqml` / 经典三种皮肤）。
+- 全年文章先过前置条目过滤（目次/卷首语/征稿等），再用 `dhgleaner/keywords.py` 打 `dhMatched` / `histAiMatched` 双标签；`dhOnly`（默认）只留命中文章。
+- 逐期/逐篇请求按 `harvestDelay` 限速；只读公开页与开放 API，不绕过验证码/登录，不写 Zotero、不下 PDF。
+- 结果同样经质量闸门（`captureType="harvest"` 跳过「year==0」误抓判定）落到 `data/review.md` / `pending.json`，`screen` / `import` 下游照常可用。
+- `harvestOnly` 期刊会被 `capture --all-journals` 与 `doctor --network` 跳过；对它们用 `capture` 抓当期会被拒绝并提示改用 `harvest`（除非显式给 `--url`）。
 
 ## 筛选与导入
 

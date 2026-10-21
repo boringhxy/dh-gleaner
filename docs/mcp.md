@@ -98,7 +98,7 @@ dhgleaner-mcp        # 以 stdio 运行 MCP 服务端
 
 自检数据目录、配置模板、依赖与可写性。`checkZotero` 会真实连接 Zotero 逐刊检查 Collection（只读，不新建目录）；`checkNetwork` 会真实抓取各刊当期目录页做解析验证。
 
-## 写本地工具（4 个）
+## 写本地工具（5 个）
 
 只写本数据目录，**不写 Zotero**。
 
@@ -113,6 +113,16 @@ dhgleaner-mcp        # 以 stdio 运行 MCP 服务端
 ### `capture_channel(journal, channel, url="", dedupe=false, dryRun=true, limit=200)` → 前两个参数必填
 
 按栏目抓取跨期清单，同样默认 `dryRun=true`。
+
+### `harvest_year(year=null, journal="", withAbstracts=true, dhOnly=true, dedupe=false, dryRun=true, limit=200)` → `year` 必填
+
+按年枚举散篇期刊的全年目录，并用关键词表打标筛选，同样默认 `dryRun=true`、不写 Zotero、不下 PDF。面向标了 `harvestOnly` 的图情/信息刊（现代情报、情报科学、中国图书馆学报、国家图书馆学刊、数字图书馆论坛、图书情报知识、信息资源管理学报）。
+
+- `journal` 留空 → harvest 配置中所有 `harvestOnly` 期刊；指定时须支持 harvest（解析器为 `founder` / `journalx` / `magtech`），否则返回 `invalid_input`。
+- `dhOnly=true`（默认）只保留命中关键词表的文章；`false` 保留全年全目录并打标签。
+- `withAbstracts=false` 更快，但关键词只按标题命中。
+
+返回字段与 `capture_issue` 一致（`status` / `quality` / `articleCount` / `articles[]` 等）。
 
 ### `export_review_spreadsheet(output="")`
 

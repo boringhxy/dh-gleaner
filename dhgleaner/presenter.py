@@ -10,6 +10,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Tuple
 
+from .keywords import tagArticles
 from .models import STATUS_PRESENTED, STATUS_SELECTED, Article, IssueInfo
 
 log = logging.getLogger(__name__)
@@ -26,6 +27,9 @@ def _headingLabel(issue: Optional[IssueInfo], articles: List[Article]) -> str:
     if articles and all((a.sourceType or "issue") == "channel" for a in articles):
         channel = articles[0].section or "栏目"
         return f"{channel}栏目清单"
+    if articles and all((a.sourceType or "issue") == "harvest" for a in articles):
+        year = articles[0].year
+        return f"{year}年散篇清单" if year else "散篇清单"
     if issue:
         return issue.label()
     return ""
@@ -50,6 +54,10 @@ def renderCatalog(
     allArticles: List[Article] = []
     for _, _, articles in captureResults:
         allArticles.extend(articles)
+
+    # 框架级 DH 双标签：capture / channel / harvest 三条流程都在此统一打标，
+    # 因此 review.md 与 pending.json 里的每篇文章都带 dhMatched / histAiMatched。
+    tagArticles(allArticles)
 
     hasAny = len(allArticles) > 0
     globalIdx = 0
@@ -77,12 +85,17 @@ def renderCatalog(
         for section, arts in sections.items():
             lines.append(f"**{_escapeCell(section)}**\n")
             includeIssue = any((a.sourceType or "issue") == "channel" or a.issueDisplay for a in arts)
+            includeHits = all((a.sourceType or "issue") == "harvest" for a in arts) and any(
+                a.dhMatched or a.histAiMatched for a in arts
+            )
+            header = ["#", "标题"]
             if includeIssue:
-                lines.append("| # | 标题 | 年卷期 | 作者 | 页码 | PDF | 摘要 |")
-                lines.append("|---|------|--------|------|------|-----|------|")
-            else:
-                lines.append("| # | 标题 | 作者 | 页码 | PDF | 摘要 |")
-                lines.append("|---|------|------|------|-----|------|")
+                header.append("年卷期")
+            header += ["作者", "页码", "PDF", "摘要"]
+            if includeHits:
+                header.append("命中")
+            lines.append("| " + " | ".join(header) + " |")
+            lines.append("|" + "|".join(["------"] * len(header)) + "|")
             for article in arts:
                 globalIdx += 1
                 article._globalIndex = globalIdx
@@ -94,11 +107,14 @@ def renderCatalog(
                 pages = _escapeCell(article.pagesStr() or "—")
                 pdf = _escapeCell(article.pdfSize or ("有" if article.pdfUrl else "无"))
                 absFlag = _escapeCell(f"有({len(article.abstract)}字)") if article.abstract else "无"
+                cells = [str(globalIdx), title]
                 if includeIssue:
-                    issueLabel = _escapeCell(_issueLabelForArticle(article))
-                    lines.append(f"| {globalIdx} | {title} | {issueLabel} | {authors} | {pages} | {pdf} | {absFlag} |")
-                else:
-                    lines.append(f"| {globalIdx} | {title} | {authors} | {pages} | {pdf} | {absFlag} |")
+                    cells.append(_escapeCell(_issueLabelForArticle(article)))
+                cells += [authors, pages, pdf, absFlag]
+                if includeHits:
+                    hits = list(article.dhMatched)[:4] or list(article.histAiMatched)[:4]
+                    cells.append(_escapeCell(",".join(hits)) or "—")
+                lines.append("| " + " | ".join(cells) + " |")
             lines.append("")
 
     if hasAny:
@@ -117,6 +133,12 @@ def renderCatalog(
             lines.append(f"- 栏目: {section}")
             lines.append(f"- 页码: {pages}")
             lines.append(f"- 原文链接: {articleUrl}")
+            if article.keywords:
+                lines.append(f"- 关键词: {_escapeCell(article.keywords)}")
+            if article.dhMatched:
+                lines.append(f"- 数字人文命中: {_escapeCell(', '.join(article.dhMatched))}")
+            if article.histAiMatched:
+                lines.append(f"- 历史学+AI命中: {_escapeCell(', '.join(article.histAiMatched))}")
             if article.sourceNote:
                 lines.append(f"- 来源说明: {_escapeCell(article.sourceNote)}")
             if article.pdfUrl:

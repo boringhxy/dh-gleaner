@@ -18,7 +18,9 @@ from bs4 import BeautifulSoup
 from .http_util import fetchHtml
 from .models import Article, IssueInfo
 from .parsers.cnki_cbpt import CnkiCbptParser
+from .parsers.founder import FounderParser
 from .parsers.generic_html import GenericHtmlParser
+from .parsers.journalx import JournalXParser
 from .parsers.journy3 import Journy3Parser
 from .parsers.magtech import MagtechParser
 from .state import StateManager
@@ -39,6 +41,16 @@ def getParser(parserName: str, journalName: str, httpCfg: dict, journalCfg: Opti
             journalName,
             httpCfg,
             baseUrl=journalCfg.get("url") or journalCfg.get("currentIssueUrl", ""),
+            journalCfg=journalCfg,
+        )
+    if parserName == "founder":
+        return FounderParser(journalName, httpCfg, journalCfg=journalCfg)
+    if parserName == "journalx":
+        return JournalXParser(
+            journalName,
+            httpCfg,
+            baseUrl=journalCfg.get("url") or journalCfg.get("currentIssueUrl", ""),
+            journalCfg=journalCfg,
         )
     if parserName == "generic_html":
         return GenericHtmlParser(
@@ -443,6 +455,9 @@ def captureAll(
     for journalCfg in journalsCfg:
         name = journalCfg["name"]
         if journalName and name != journalName:
+            continue
+        if not journalName and journalCfg.get("harvestOnly"):
+            log.info("《%s》是散篇 harvest 期刊，capture 全量轮转跳过；请用 harvest 命令按年采集", name)
             continue
         if explicitUrl and not journalName:
             log.error("使用 --url 时必须同时指定 --journal")

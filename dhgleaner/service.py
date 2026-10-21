@@ -27,6 +27,7 @@ from typing import List, Optional, Sequence
 
 from .capture import assessCaptureQuality, captureAll, captureChannel
 from .config import credentialHint, isZoteroConfigured, loadConfig
+from .harvest import harvestAll
 from .importer import importArticlesDetailed
 from .models import Article, IssueInfo
 from .paths import configTemplatePath, getPaths, resolveRuntimePath
@@ -337,6 +338,53 @@ def captureJournalChannel(
     return _finishCapture(outcome, captureType="channel", note=note, dryRun=dryRun)
 
 
+def captureHarvest(
+    cfg: dict,
+    *,
+    year: int,
+    journalName: str = "",
+    withAbstracts: bool = True,
+    dedupe: bool = False,
+    dhOnly: bool = True,
+    dryRun: bool = False,
+) -> CaptureOutcome:
+    """按年 harvest 散篇期刊：全年全目录 → DH 关键词筛 → 落盘待筛清单。
+
+    与 captureIssue / captureJournalChannel 并列的第三种采集流程；结果同样经
+    renderCatalog → 质量闸门 → savePending，因此 screen / import 下游照常可用。
+    journalName 为空串时 harvest 配置中所有标了 ``harvestOnly`` 的散篇期刊。
+    """
+    results = harvestAll(
+        cfg["journals"],
+        cfg["http"],
+        stateManager(cfg),
+        year=year,
+        journalName=journalName,
+        withAbstracts=withAbstracts,
+        dedupe=dedupe,
+        dhOnly=dhOnly,
+    )
+    markdown, articles = renderCatalog(results)
+    firstIssue: IssueInfo | None = results[0][1] if results else None
+    quality, reason = assessCaptureQuality(firstIssue, articles, captureType="harvest")
+    scope = f"《{journalName}》" if journalName else "全部散篇期刊"
+    note = (
+        f"{year} 年散篇 harvest：{scope}；"
+        + ("仅保留 DH 命中文章。" if dhOnly else "保留全目录并已打 DH 标签。")
+    )
+    outcome = CaptureOutcome(
+        journal=journalName or "散篇期刊",
+        issue=f"{year}年",
+        markdown=markdown,
+        articles=articles,
+        quality=quality,
+        reason=reason,
+        status="success" if (articles and quality == "success") else "failed",
+        collected=results,
+    )
+    return _finishCapture(outcome, captureType="harvest", note=note, dryRun=dryRun)
+
+
 # --------------------------------------------------------------------------
 # 导入
 # --------------------------------------------------------------------------
@@ -533,6 +581,8 @@ def _networkChecks(cfg: dict) -> list[DoctorCheck]:
 
     checks: list[DoctorCheck] = []
     for journal in cfg.get("journals", []):
+        if journal.get("harvestOnly"):
+            continue
         label = f"抓取解析《{journal['name']}》"
         if not journal.get("currentIssueUrl"):
             checks.append(DoctorCheck(label, False, "暂无稳定公开目录页，请使用 --url 手动指定"))

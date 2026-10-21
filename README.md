@@ -95,6 +95,7 @@ dhgleaner doctor --network       # 额外做一次网络连通性检查
 | 期次抓取 | 某刊某年某期 | `dhgleaner capture --journal "期刊名" --year x --issue x` |
 | 卷期抓取 | 需要精确到卷号时 | `dhgleaner capture --journal "期刊名" --year x --volume x --issue x` |
 | 栏目抓取 | 某刊某栏目跨期全量 | `dhgleaner capture-channel --journal "图书馆杂志" --channel "数字人文"` |
+| 散篇 harvest | 没有常设数字人文栏目、DH 内容散落在各栏目的图情/信息刊，按年枚举全目录再关键词筛 | `dhgleaner harvest --year 2026` |
 | 手动目录页 | 官方公告页、微信目录、Airiti 等不稳定页面 | `dhgleaner capture --journal "期刊名" --url "目录页URL"` |
 
 ```bash
@@ -109,6 +110,28 @@ dhgleaner capture --all-journals --year x --issue x   # 显式抓取全部已配
 ```
 
 不指定期刊的 `capture --year x --issue x` 会被拒绝——要抓全部必须显式加 `--all-journals`。
+
+### 散篇 harvest（按年枚举 + 关键词筛）
+
+有些图情/信息刊没有常设的「数字人文」栏目，DH 内容以散篇混在各栏目里，且当期目录页不稳定，只能逐年翻过刊库。`harvest` 就是为这类刊准备的第三种采集流程：按年枚举全年全目录 → 用关键词表打标 → 只留数字人文散篇。结果同样落到 `data/review.md` / `pending.json`，`screen` / `import` 下游照常可用。
+
+```bash
+dhgleaner harvest --year 2026                          # harvest 配置中所有 harvestOnly 散篇期刊
+dhgleaner harvest --journal "现代情报" --year 2026       # 只 harvest 某一刊
+dhgleaner harvest --year 2026 --all-catalog            # 保留全年全目录并打 DH 标签（不只留命中）
+dhgleaner harvest --year 2026 --no-abstracts           # 不抓摘要，更快（关键词只按标题命中）
+dhgleaner harvest --year 2026 --dedupe                 # 按 state.json 过滤已处理文章
+dhgleaner harvest --year 2026 --dry-run                # 只打印，不覆盖 pending/review
+```
+
+`harvestOnly: true` 的期刊只进入 harvest 轮转，会被 `capture --all-journals` 与 `doctor --network` 跳过；对它们用 `capture` 抓当期会被拒绝并提示改用 `harvest`（除非显式给 `--url`）。
+
+**关键词口径**（`dhgleaner/keywords.py`，capture 与 harvest 共用，给每篇文章打框架级双标签）。一篇文章算 DH，当且仅当**命中数字人文领域词**或**历史学+AI 共现**：
+
+- **数字人文表**（`dhMatched`）= 领域词（数字人文/文化遗产/数字典藏/博物馆/GLAM/计量史学…），**任一命中**即算。
+- **历史学+AI 表**（`histAiMatched`）= 历史词（古籍/甲骨/敦煌/方志/断代史…）+ 计算方法词（知识图谱/文本挖掘/GIS/深度学习/语义/本体…），采用**共现**判定：两侧各至少命中 1 个才算。
+- **计算方法词不单独算 DH**：图情/信息刊里大量「AI in LIS」论文只用方法词、并无数字人文实质，单独命中会带来大量噪声，故方法词只在「历史+AI 共现」时作为计算侧计入。
+- 命中用大小写敏感子串匹配（英文缩写 RAG/GIS/OCR 不会误落进 storage/logistics）；刻意排除「历史、古代、传统、文化、档案、记忆」等陷阱泛词。
 
 ### 筛选与导入
 
@@ -207,6 +230,18 @@ Zotero 中需要提前存在这些 Collection 路径：
 | 图书馆杂志 | `https://www.libraryjournal.com.cn/` | `magtech` | 支持期次页；支持「数字人文」栏目全量分页抓取 | 通常可抓取 | 导入选中文章时尝试下载并挂载 |
 | 图书馆论坛 | `http://tsglt.zslib.com.cn/` | `magtech` | 可按配置推算卷号并使用历史 URL 模板定位公开过刊 | 通常可抓取 | 导入选中文章时尝试下载并挂载 |
 
+以下散篇期刊标了 `harvestOnly: true`，只走 `harvest` 按年采集（不进 `capture --all-journals`，默认不下载 PDF）：
+
+| 期刊 | 站点 | 解析器 | harvest 方式 |
+|------|------|--------|--------------|
+| 现代情报 | `https://www.xdqb.net/` | `founder` | 方正 rc-pub 开放 JSON API（getPeriodTree + 按栏目分组文章，内联摘要） |
+| 情报科学 | `https://journal12.magtechjournal.com/jwk3_qbkx` | `magtech` | 过刊库 `ul.lunwen` 皮肤，逐篇抓详情摘要 |
+| 中国图书馆学报 | `https://www.jlis.cn/jtlsc/ch/reader/` | `journalx` | `issue_list.aspx` 按季枚举，逐篇抓 `view_abstract` 详情 |
+| 国家图书馆学刊 | `https://gtxk.nlc.cn/ch/reader/` | `journalx` | 同上 |
+| 数字图书馆论坛 | `http://journals.istic.ac.cn/dlf/ch/reader/` | `journalx` | 同上 |
+| 图书情报知识 | `https://dik.whu.edu.cn/jwk3/tsqbzs` | `magtech` | 过刊库 `div.dqml` 皮肤（DOI 式题名链接），逐篇抓详情摘要 |
+| 信息资源管理学报 | `https://jirm.whu.edu.cn/jwk3/xxzyglxb` | `magtech` | 同上 |
+
 新增期刊以配置驱动为主，解析器扩展方式见 `docs/sources.md`。
 
 ## 接入 AI 客户端（MCP）
@@ -230,10 +265,10 @@ dhgleaner-mcp      # 以 stdio 方式运行 MCP 服务
 }
 ```
 
-服务端暴露 13 个工具：
+服务端暴露 14 个工具：
 
 - **只读 8 个**：`list_journals`、`get_capture_status`、`list_pending_articles`、`get_article_abstract`、`search_pending_articles`、`preview_import`、`get_import_report`、`run_doctor`
-- **写本地 4 个**：`capture_issue`、`capture_channel`、`export_review_spreadsheet`、`mark_pending_skipped`
+- **写本地 5 个**：`capture_issue`、`capture_channel`、`harvest_year`、`export_review_spreadsheet`、`mark_pending_skipped`
 - **写 Zotero 1 个**：`import_to_zotero`
 
 `import_to_zotero` **默认拒绝执行**，必须同时给出 `confirm=true` 且 `dryRun=false` 才会真正写库。工具失败时返回带 `failureKind`（`network` / `blocked` / `captcha` / `empty_parse` / `issue_mismatch` / `not_configured` / `invalid_input` / `no_pending`）的结构化结果，便于客户端决定下一步。
