@@ -4,8 +4,8 @@ contact_links:
     url: https://github.com/boringhxy/dh-gleaner/blob/main/docs/README.md
     about: 工作流、数据格式、期刊来源与解析器、Zotero 集成、MCP 工具参考、开发指南
   - name: 安全问题请私密上报（不要开公开 issue）
-    url: mailto:boringhxy@163.com
-    about: 凭据泄漏路径、绕过导入确认闸门等安全缺陷，按 SECURITY.md 走邮件渠道
+    url: https://github.com/boringhxy/dh-gleaner/blob/main/SECURITY.md
+    about: 凭据泄漏路径、绕过导入确认闸门等安全缺陷，按 SECURITY.md 里的邮件渠道上报
   - name: 想贡献代码或新增解析器
     url: https://github.com/boringhxy/dh-gleaner/blob/main/CONTRIBUTING.md
     about: 先读硬性红线与开发环境要求；拿不准是否越线时，先开 issue 讨论再提 PR
