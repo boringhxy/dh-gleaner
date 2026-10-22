@@ -22,6 +22,10 @@
 - **MCP 服务端**工具数 13 → 14（写本地组新增 `harvest_year`）；`list_journals` 返回增加 `harvestOnly` 字段。
 - **抓取更克制**：重试间隔从固定 `retryInterval` 改为指数退避（上限 300 秒），站点返回 `Retry-After` 时优先听站点的；`capture-channel` 的逐页请求之间接入 `harvestDelay` 限速（此前只有 harvest 路径限速）；栏目分页数加 `maxChannelPages` 硬上限（默认 50）——「共 N 页」是用正则从页面文本抠的，抠错一位数就会变成上万个请求，触顶时记为失败而非静默少给清单。补 `tests/test_fetch_policy.py` 11 个离线用例。
 - 抓取质量校验对 `captureType="harvest"` 跳过「year==0」误抓判定（散篇清单本就没有单一期次）。
+- **依赖加上界**：四条运行时依赖与 `mcp` extra 从只写下界改为封到下一个 major（`requests<3`、`beautifulsoup4<5`、`lxml<7`、`pyzotero<2`、`mcp<3`）。开区间意味着某天 `pipx install --force` 会静默升到一个没测过的接口，而 `mcp` 已经证明这类 breaking major 真的会发生（1.x → 2.0.0 直接换掉 `mcp.server` 布局）。上界刻意容得下当前验证过的组合（requests 2.34 / bs4 4.15 / lxml 6.1 / pyzotero 1.16 / mcp 2.3），不把已经能装的人锁在门外。不加 lockfile：本项目推荐 `git+https` 源安装，`pipx` / `uv tool install` 都不读 `uv.lock`，它只服务「在仓库里开发」一种场景，收益抵不上常更新的成本。
+- **CI 增加 Windows**：矩阵从 ubuntu + macOS 扩到三平台 × 4 个 Python 版本。此前 Windows 完全没测过，但安装方式（pipx / uv）和 `requires-python >=3.10` 都没有排除它。配套修掉两处只在 POSIX 成立的前提：`0o600` 权限断言在非 POSIX 平台跳过（NTFS 不保存 POSIX 权限位，`os.chmod` 在 `service.py` 里本来就是 `suppress(OSError)`），终端日志流在 Python 3.7+ 上重配为 UTF-8（英文区 Windows 默认 cp1252，中文日志行会触发 `UnicodeEncodeError`，logging 会把它吞成「--- Logging error ---」让终端一片空白）。
+- **删掉仓库根目录的重复密钥模板**：`config.local.example.json` 在根目录和 `dhgleaner/defaults/` 各有一份、逐字节相同，但代码只读包内那份（`paths.py` 的 `configTemplatePath`），CI 校验的也是包内那份。两份必然漂移，还会让人纠结该改哪一份。根副本连同 sdist `include` 里的引用一并删除。
+- **测试样例集中到 `tests/samples.py`**：`SAMPLE_JOURNY3` / `SAMPLE_CNKI` 与解析器用的 `HTTP_CFG` 原本在 `test_parsers.py` 和 `test_agent.py` 各存一份逐字相同的副本，长 UA 串还有第三份在 `test_harvest.py`。样例一改就两处不同步，两个文件会给出互相矛盾的「预期」。
 
 ### 修复
 
@@ -31,6 +35,9 @@
 - **乱码检测进质量闸门**：标题或摘要含解码替换符 U+FFFD 时判 `suspect`。站点声明错编码、或 `apparent_encoding` 猜错时整页中文会成片变成 U+FFFD，过去这种清单看着「有文章、标题不重复」能直接判 `success` 覆盖旧清单。
 - **导航词黑名单合到一处**（`dhgleaner/textutil.py` 的 `isNavigationTitle` / `isBlacklistedTitle`）：`capture` 的质量闸门与 `generic_html` 解析器原本各维护一份词表，闸门那份不含「过刊浏览 / 在线投稿 / 关于我们 / 广告合作」，整页抓成导航时仍能报 `success` 并覆盖旧清单。合并时顺带收紧拉丁词——`Journal` / `More` 这类改为整条相等才算，避免《Journal of Digital Humanities 的引文分析》被误判。
 - **CI 恢复绿灯**：`dhgleaner/mcp/tools_capture.py` 的 import 块触发 ruff `I001`（未排序），导致 harvest 那次提交的 8 个测试矩阵格子全部挂在 Lint 步骤、只有 build 任务通过。`captureHarvest` 原本被单独拆成一个 `from ..service import` 块，现与其余无别名导入合并；带别名的 `captureIssue as _captureIssue` 按 ruff isort 规则仍需独立成块（别名 `_captureIssue` 的排序位置与原导入名不同，合并会改变顺序语义）。纯 import 整理，无行为改动。
+- **`journalx` 不再按固定行号取作者与年期页**：`_rows` 原本取 `trs[i+1]` 当作者行、再在 `(i+1, i+2, i+3)` 这个固定窗口里找「年, 卷(期): 页码」行，依赖的是「每篇恰好 3 个 `<tr>`」这个页面约定。站点多插一行（作者单位、DOI）就会读到下一篇文章的行，把别人的卷期页挂到这篇文章上。现改为从题名行往后扫、遇到下一个题名行即停，跳过嵌套表格的包裹行，并按行的内容而不是位置判定它是作者行还是年期页行；年期页行不会被当成作者，缺失作者行也不会误吃下一篇的年期页。**「下一个题名行」必须和「取题名」用同一口径**：实测《中国图书馆学报》真实目录页时发现，年期页行里也挂着一个 `view_abstract.aspx?file_no=` 链接（那个「摘要」），只按 href 判断就会停在年期页行上、整刊的卷号与页码全丢；`tests/test_harvest.py` 把这一条钉成了用例。
+- **`publishDate` 规范化**：`journy3` 与 `magtech` 的日期捕获组是宽松的 `[\d-]+`，`2026-6-2`、`--`、`2026-06-28-abcd` 都能匹配上，然后被 `zotero_client` 原样写进条目的 `date` 字段。现在过一道 `normalizeDate`：认 `2026-06-28` / `2026-06` / `2026` 及 `.` `/` 分隔的写法并补零成 ISO，认不出来就留空串——`date` 自然回退到年份，比写进一个 Zotero 解析不出的脏值好。`docs/data-format.md` 相应说明字段保证是 ISO 或空。
+- **`journy3` 不再写死站点地址**：`BASE_URL` 是类里的常量，`articleUrl` 与 `pdfUrl` 都从它拼，`getParser` 也不给它传 `baseUrl`（同文件的 magtech / journalx 都传）。结果《数字人文研究》换域名或转 https 必须改代码，配置里新增同平台期刊也没法复用这个解析器。现在按配置 `url` 走，包内默认值兜底，现有配置行为不变。
 - **`doctor` 文案对齐新的安装方式**：依赖缺失时原本提示「请重新安装本包（`pip install -e .`）」，但 `-e` 是开发模式，与 README 改推 pipx / uv 之后自相矛盾；现改为指向 README「安装」章节，不再硬编码某一种安装方式的命令。另一处自检项标签由「配置模板（复制它来填密钥）」改为「配置模板（`dhgleaner init` 会替你写入凭据）」——pipx / uv 安装下模板深埋在 site-packages，让使用者去那儿复制并不现实，而 `init` 本来就是更好的路径（`getpass` 不回显、存完即测连接、权限 0600、覆盖前自动 `.bak`）。模板路径仍照常显示，只是不再暗示使用者去复制它。
 
 ### 文档
@@ -43,8 +50,9 @@
 - **`docs/quality-and-safety.md` 与代码对齐**：原文把「没有捕获到任何文章」列在 `suspect` 判定里，但代码返回的是 `failed`；现按 `suspect` / `failed` 分列，并补上「判定逐刊进行」、U+FFFD 检测、栏目分页触顶三条。新增「抓取节流」小节记录指数退避、401/403/412 不重试、`harvestDelay` 限速与 `maxChannelPages` 上限。`docs/mcp.md` 补上抓取类工具结果里的 `failures` / `blockedJournals` 两个逐刊字段。
 - **README 质量校验章节追平实现**：中英两版都补上「判定逐刊进行」、U+FFFD 检测、栏目分页触顶三条 `suspect` 规则，以及新的「退出码」小节和 `data/last_capture_status.json` 里 `failures` 的 `stage` / `kind` 说明；`docs/quality-and-safety.md` 同步。
 - **Bug 模板不再强制要求 `doctor` 输出**：原来这个字段是必填，但模板同时提供「安装 / 依赖」这一环节——命令装不上的人根本跑不出 `doctor`。改为选填并说明：跑不起来就贴安装报错。
-- **README 的初始化与自检命令块去掉行内 `#` 注释**：与 harvest 那次同样的理由——未开启 `interactive_comments` 的 zsh 会把 `#` 之后的内容当成参数，整块粘贴直接失败。说明改为代码块下方的列表。（README 里还有约 38 处同样的行内注释尚未一并处理。）
+- **README 代码块里的行内 `#` 注释清扫干净**：未开启 `interactive_comments` 的 zsh 会把 `#` 之后的内容当成命令参数，整块粘贴直接失败。此前只处理了初始化、自检与 harvest 三处，现在把中英两个 README 剩下的 41 行全部挪出代码块，说明改成代码块前的一句话或代码块后的列表。**中英两版同步修改**——只改一版会立刻重新分叉。
 - harvest 命令示例由行内注释改为参数表：行内 `#` 注释在未开启 `interactive_comments` 的 zsh 里会被当成命令参数，整块粘贴会失败。
+- **`main.py` 的地位写进贡献指南**：`CONTRIBUTING.md` 要求面向用户的文案统一用 `dhgleaner`，但根目录仍保留 `python main.py` 兼容入口、sdist 也照常打包它，贡献者无从判断它还算不算受支持。现写明：它是给改造前就在用 `python main.py` 的人留的兼容入口，不是文档口径，新脚本不要依赖它。
 
 ## [0.1.0] - 2026-10-10
 

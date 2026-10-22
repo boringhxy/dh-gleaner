@@ -19,11 +19,9 @@ from dhgleaner.parsers.magtech import MagtechParser
 from dhgleaner.state import StateManager
 from dhgleaner.textutil import cleanText, isFrontMatterTitle
 from tests.helpers import tempDataDir
+from tests.samples import UA
 
-UA = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-)
+# 本文件的用例都关心「不重试、不等待」，所以刻意不同于 samples.HTTP_CFG
 HTTP_CFG = {"userAgent": UA, "timeout": 30, "maxRetries": 1, "retryInterval": 0, "harvestDelay": 0}
 
 
@@ -180,6 +178,71 @@ class JournalXRowTests(unittest.TestCase):
         self.assertEqual(article.issueDisplay, "2026, 52(1)")
         self.assertEqual(article.sourceType, "harvest")
         self.assertTrue(article.articleUrl.startswith("https://www.jlis.cn/jtlsc/ch/reader/"))
+
+    #: 站点在题名行与年期页行之间多插了行（作者单位、DOI）。按固定行号
+    #: (i+1..i+3) 取值的旧实现扫不到第四行之后的年期页，卷期页会整个丢掉。
+    SPREAD_HTML = """
+    <table>
+      <tr><td><a href="view_abstract.aspx?file_no=20260101">数字人文视域下的古籍整理</a></td></tr>
+      <tr><td>张三，李四</td></tr>
+      <tr><td>作者单位：某大学信息资源管理学院</td></tr>
+      <tr><td>DOI:10.13766/j.bgxk.2026.01.001</td></tr>
+      <tr><td>2026, 52(1): 3-17.</td></tr>
+      <tr><td><a href="view_abstract.aspx?file_no=20260102">面向口述史料的实体抽取</a></td></tr>
+      <tr><td>王五</td></tr>
+      <tr><td>2026, 52(1): 18-30.</td></tr>
+    </table>
+    """
+
+    def testIssueRowFoundBeyondThreeRowsBelowTitle(self):
+        parser = JournalXParser("中国图书馆学报", HTTP_CFG, baseUrl="https://www.jlis.cn/jtlsc/ch/reader/")
+        rows = parser._rows(BeautifulSoup(self.SPREAD_HTML, "lxml"), year=2026, quarter=1)
+
+        self.assertEqual([a.title for a in rows], ["数字人文视域下的古籍整理", "面向口述史料的实体抽取"])
+        self.assertEqual([(a.volume, a.startPage, a.endPage) for a in rows], [(52, 3, 17), (52, 18, 30)])
+        self.assertEqual([a.authors for a in rows], [["张三", "李四"], ["王五"]])
+
+    def testScanStopsAtNextTitleRow(self):
+        """一篇只有题名+作者、没有年期页行时，不能顺着读到下一篇文章的年期页。"""
+        html = """
+        <table>
+          <tr><td><a href="view_abstract.aspx?file_no=20260101">数字人文视域下的古籍整理</a></td></tr>
+          <tr><td>张三</td></tr>
+          <tr><td><a href="view_abstract.aspx?file_no=20260102">面向口述史料的实体抽取</a></td></tr>
+          <tr><td>王五</td></tr>
+          <tr><td>2026, 52(2): 18-30.</td></tr>
+        </table>
+        """
+        parser = JournalXParser("中国图书馆学报", HTTP_CFG, baseUrl="https://www.jlis.cn/jtlsc/ch/reader/")
+        rows = parser._rows(BeautifulSoup(html, "lxml"), year=2026, quarter=2)
+
+        first, second = rows
+        self.assertIsNone(first.volume, "第一篇没有年期页行，卷号应为空而不是借用下一篇的")
+        self.assertEqual((first.startPage, first.endPage), (0, 0))
+        self.assertEqual((second.volume, second.startPage, second.endPage), (52, 18, 30))
+
+    def testIssueRowWithAbstractLinkIsNotANewArticle(self):
+        """真实 jlis 页面的年期页行里也挂着 `view_abstract.aspx` 链接（那个「摘要」）。
+
+        「遇到题名行就停」必须和「取题名」用同一口径，否则会在年期页行上停下，
+        整刊的卷号与页码都会丢——这是实测真实页面时踩到的坑。
+        """
+        html = """
+        <table>
+          <tr><td><a href="view_abstract.aspx?file_no=20250101">数字人文视域下的古籍整理</a></td></tr>
+          <tr><td>张三，李四</td></tr>
+          <tr><td>2025, 51(1): 4-18
+            <a href="view_abstract.aspx?file_no=20250101">摘要</a>
+            <a href="download.aspx?fn=x">下载 PDF (12.67 M)</a>
+          </td></tr>
+        </table>
+        """
+        parser = JournalXParser("中国图书馆学报", HTTP_CFG, baseUrl="https://www.jlis.cn/jtlsc/ch/reader/")
+        rows = parser._rows(BeautifulSoup(html, "lxml"), year=2025, quarter=1)
+
+        self.assertEqual(len(rows), 1, "年期页行上的「摘要」链接不应被当成第二篇文章")
+        self.assertEqual((rows[0].volume, rows[0].startPage, rows[0].endPage), (51, 4, 18))
+        self.assertEqual(rows[0].authors, ["张三", "李四"])
 
 
 class MagtechSkinTests(unittest.TestCase):

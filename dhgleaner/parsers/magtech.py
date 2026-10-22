@@ -17,7 +17,7 @@ from bs4 import BeautifulSoup
 
 from ..http_util import FetchBlocked, FetchFailed, fetchHtml
 from ..models import Article, IssueInfo
-from ..textutil import cleanText
+from ..textutil import cleanText, normalizeDate
 from .base import BaseParser
 
 log = logging.getLogger(__name__)
@@ -136,8 +136,10 @@ class MagtechParser(BaseParser):
             if not m:
                 continue
             groups = m.groups()
-            if len(groups) >= 4 and re.match(r"\d{4}-\d{2}-\d{2}", groups[3]):
-                return IssueInfo(year=int(groups[0]), volume=int(groups[1]), issue=int(groups[2]), publishDate=groups[3])
+            # 日期只在这里规范化一次，后面各分支都是复制 IssueInfo.publishDate
+            publishDate = normalizeDate(groups[3]) if len(groups) >= 4 else ""
+            if len(groups) >= 4 and publishDate:
+                return IssueInfo(year=int(groups[0]), volume=int(groups[1]), issue=int(groups[2]), publishDate=publishDate)
             if len(groups) >= 3:
                 return IssueInfo(year=int(groups[0]), volume=int(groups[1]), issue=int(groups[2]))
             if len(groups) == 2:

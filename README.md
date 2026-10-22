@@ -72,18 +72,18 @@ dhgleaner doctor
 
 ## 快速开始
 
-抓取和筛选**不需要任何 Zotero 凭据**，装上就能试：
+抓取和筛选**不需要任何 Zotero 凭据**，装上就能试。先抓一期目录，再把清单显示出来、记下要导入的编号：
 
 ```bash
-dhgleaner capture --journal "数字人文研究" --year 2026 --volume 6 --issue 2   # 1. 抓当期目录
-dhgleaner review                 # 2. 读清单，记下要导入的编号
+dhgleaner capture --journal "数字人文研究" --year 2026 --volume 6 --issue 2
+dhgleaner review
 ```
 
-要把选中的文章写进 Zotero 时，再配置你自己的凭据：
+要把选中的文章写进 Zotero 时，再配置你自己的凭据。`init` 会交互式录入凭据、测试连接，并可选补齐 Collection 目录；`import --selection` 只导入你选中的那几篇：
 
 ```bash
-dhgleaner init                        # 3. 交互式录入凭据、测试连接、可选补齐 Collection 目录
-dhgleaner import --selection "1,3,5"  # 4. 只导入选中的文章
+dhgleaner init
+dhgleaner import --selection "1,3,5"
 ```
 
 `dhgleaner init` 把凭据写进数据目录下的 `config.local.json`（不会提交、不会上传、输入不回显）；
@@ -140,7 +140,7 @@ dhgleaner capture --journal "图书馆杂志" --year x --issue x
 dhgleaner capture-channel --journal "图书馆杂志" --channel "数字人文"
 dhgleaner capture --journal "中国数字人文" --url "真实目录页URL"
 dhgleaner capture --journal "数位典藏与数位人文" --url "真实目录页URL"
-dhgleaner capture --all-journals --year x --issue x   # 显式抓取全部已配置期刊
+dhgleaner capture --all-journals --year x --issue x
 ```
 
 不指定期刊的 `capture --year x --issue x` 会被拒绝——要抓全部必须显式加 `--all-journals`。
@@ -178,34 +178,36 @@ dhgleaner harvest --year 2026 --dry-run
 
 ### 筛选与导入
 
-```bash
-dhgleaner review                                        # 重新显示最近一次筛选清单
-dhgleaner abstract --index 1                            # 查看某一篇的完整摘要
-dhgleaner export-review                                 # 导出 Excel 筛选表 data/review_selection.xlsx
-dhgleaner import --spreadsheet data/review_selection.xlsx          # 按表格勾选导入
-dhgleaner import --spreadsheet data/review_selection.xlsx --dry-run # 只预览会导入哪些
-dhgleaner import --selection "1,3,5"                    # 按编号导入
-dhgleaner import --titles-file "titles.txt" --confirm-titles       # 按题名匹配导入
-dhgleaner import --selection "都不要"                    # 本批全部不导入，标记为跳过
-```
+| 命令 | 作用 |
+| --- | --- |
+| `dhgleaner review` | 重新显示最近一次筛选清单 |
+| `dhgleaner abstract --index 1` | 查看某一篇的完整摘要 |
+| `dhgleaner export-review` | 导出 Excel 筛选表 `data/review_selection.xlsx` |
+| `dhgleaner import --spreadsheet data/review_selection.xlsx` | 按表格勾选导入 |
+| `dhgleaner import --spreadsheet data/review_selection.xlsx --dry-run` | 只预览会导入哪些 |
+| `dhgleaner import --selection "1,3,5"` | 按编号导入 |
+| `dhgleaner import --titles-file "titles.txt" --confirm-titles` | 按题名匹配导入 |
+| `dhgleaner import --selection "都不要"` | 本批全部不导入，标记为跳过 |
 
 `export-review` 生成 `data/review_selection.xlsx`，在「筛选」页把「是否导入」列填「是」再执行 `import --spreadsheet`。
 
-**筛选篮**适合边浏览边收集：
+**筛选篮**适合边浏览边收集：先 `--list` 看当前清单、`--search` 按关键词找编号、`--add` / `--remove` 增删条目，最后 `--import` 把篮子里的文章导入。`--clear` 清空。
 
 ```bash
-dhgleaner screen --list                     # 看当前清单
-dhgleaner screen --search "关键词"           # 按关键词找编号
-dhgleaner screen --add "1,3-5"              # 加进筛选篮
+dhgleaner screen --list
+dhgleaner screen --search "关键词"
+dhgleaner screen --add "1,3-5"
 dhgleaner screen --remove "3"
 dhgleaner screen --clear
-dhgleaner screen --import                   # 把筛选篮里的文章导入
+dhgleaner screen --import
 ```
 
 ### 其他
 
+`--data-dir` 只对本次调用生效，用于临时指定数据目录：
+
 ```bash
-dhgleaner --data-dir /path/to/dir <子命令>   # 临时指定数据目录
+dhgleaner --data-dir /path/to/dir <子命令>
 dhgleaner --help
 ```
 
@@ -477,11 +479,13 @@ git clone https://github.com/boringhxy/dh-gleaner.git
 cd dh-gleaner
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev,mcp]"      # mcp 可选：不装则跳过 1 项 server 注册校验，其余用例照常
-
-python -B -m unittest discover -s tests -v    # 单元测试
-ruff check .                                  # 静态检查
+pip install -e ".[dev,mcp]"
+python -B -m unittest discover -s tests -v
+ruff check .
 ```
+
+`[dev]` 提供 `ruff`，`[mcp]` 是 MCP 层与其测试所需的依赖。不装 `mcp` 也能跑测试，只是会跳过 1 项 server 注册校验，其余用例照常。
+最后两条分别是单元测试与静态检查，提交前两条都要干净。
 
 贡献方式与红线见 `CONTRIBUTING.md`；安全问题上报见 `SECURITY.md`；版本变更见 `CHANGELOG.md`。提 PR 时会用到 `.github/PULL_REQUEST_TEMPLATE.md` 里的检查清单。
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import sys
 import unittest
 from pathlib import Path
 
@@ -113,6 +114,10 @@ class SaveCredentialsTests(unittest.TestCase):
             data = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual(data["zotero"]["webLibraryId"], "12345")
             self.assertEqual(data["zotero"]["webApiKey"], "secretKey")
+            if sys.platform == "win32":
+                # NTFS 不保存 POSIX 权限位（`os.chmod` 在那里只落到「只读」属性上），
+                # Windows 保护凭据靠的是账户隔离而不是 0600，所以这条断言只对 POSIX 有意义。
+                self.skipTest("NTFS 没有 POSIX 权限位，0o600 断言仅适用于 POSIX 平台")
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
             self.assertFalse((dataDir / "config.json").exists(), "凭据绝不能写进 config.json")
 

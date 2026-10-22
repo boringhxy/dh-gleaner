@@ -22,6 +22,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 
 from ..models import Article, IssueInfo
+from ..textutil import normalizeDate
 from .base import BaseParser
 
 log = logging.getLogger(__name__)
@@ -30,7 +31,13 @@ log = logging.getLogger(__name__)
 class Journy3Parser(BaseParser):
     """《数字人文研究》解析器 — Journy3（玛格泰克）期刊系统。"""
 
+    #: 配置里没有 `url` 时的兜底站点。写死它会让换域名或转 https 必须改代码，
+    #: 所以只当默认值，实际用的是 `self.baseUrl`。
     BASE_URL = "http://dhr.ruc.edu.cn"
+
+    def __init__(self, journalName: str, httpCfg: dict, baseUrl: str = ""):
+        super().__init__(journalName, httpCfg)
+        self.baseUrl = (baseUrl or self.BASE_URL).rstrip("/")
 
     def parseCurrentIssue(self, html: str) -> Tuple[IssueInfo, List[Article]]:
         soup = BeautifulSoup(html, "lxml")
@@ -58,7 +65,7 @@ class Journy3Parser(BaseParser):
                 year=int(m.group(1)),
                 volume=int(m.group(2)),
                 issue=int(m.group(3)),
-                publishDate=m.group(4),
+                publishDate=normalizeDate(m.group(4)),
             )
         # 降级：仅年卷期，无刊出日期
         m = re.search(r"(\d{4})年\s*第(\d+)卷\s*第(\d+)期", text)
@@ -114,7 +121,7 @@ class Journy3Parser(BaseParser):
             log.warning("文章块缺少标题: %s", blockId)
             return None
         title = titleA.get_text(strip=True)
-        articleUrl = urljoin(self.BASE_URL, titleA.get("href", ""))
+        articleUrl = urljoin(self.baseUrl, titleA.get("href", ""))
 
         # 作者
         authorDd = block.find("dd", class_="zuozhe")
@@ -156,7 +163,7 @@ class Journy3Parser(BaseParser):
 
         if articleId:
             pdfUrl = urljoin(
-                self.BASE_URL,
+                self.baseUrl,
                 f"/CN/article/downloadArticleFile.do?attachType=PDF&id={articleId}",
             )
 

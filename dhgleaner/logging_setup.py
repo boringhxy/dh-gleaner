@@ -9,6 +9,7 @@ CLI 的 stdout 也顺带变干净了（只剩真正的结果输出，方便管�
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import sys
 from typing import IO
@@ -18,12 +19,31 @@ from .paths import getPaths, resolveRuntimePath
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 
 
+def forceUtf8(*streams) -> None:
+    """把终端流固定成 UTF-8，已经是 UTF-8 的不动。
+
+    Windows 在非 UTF-8 区域里默认给控制台 cp1252：本工具的日志与结果全是中文，
+    `logging` 会把 `UnicodeEncodeError` 吞成一行「--- Logging error ---」，终端上
+    什么有效信息都看不到（`print` 那条路更直接，当场抛错）。MCP 的 JSON-RPC 本来就
+    要求 UTF-8，所以这个固定对 stdio 传输只有好处。
+
+    流可能不是真的终端（测试里的 StringIO、被重定向的管道），`reconfigure` 未必可用，
+    失败就当没这回事。
+    """
+    for stream in streams:
+        if (getattr(stream, "encoding", "") or "").lower().replace("-", "") == "utf8":
+            continue
+        with contextlib.suppress(Exception):
+            stream.reconfigure(encoding="utf-8")
+
+
 def setupLogging(logFile: str, stream: IO[str] | None = None, level: int = logging.INFO) -> logging.Logger:
     """配置根日志：文件 + 控制台（默认 stderr）。
 
     日志文件不可写时降级为「仅控制台」，不阻断主流程。
     """
     console = stream if stream is not None else sys.stderr
+    forceUtf8(console)
     handlers: list[logging.Handler] = [logging.StreamHandler(console)]
 
     logPath = resolveRuntimePath(logFile, getPaths().defaultLogFile)

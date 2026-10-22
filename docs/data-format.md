@@ -9,7 +9,7 @@
 | `year` | int | 年份 |
 | `volume` | int / null | 卷号，可为空 |
 | `issue` | int | 期号；栏目抓取时整体 issue 可为 0，但不应作为文章显示期次 |
-| `publishDate` | string | 刊出日期，可能为空 |
+| `publishDate` | string | 刊出日期，规范化后的 ISO 写法（`YYYY-MM-DD` / `YYYY-MM` / `YYYY`）；页面文本认不出来时为空串 |
 
 ### `Article`
 
@@ -35,7 +35,7 @@
 | `articleUrl` | string | 文章页 URL |
 | `pdfUrl` | string | PDF URL，可能为空 |
 | `pdfSize` | string | PDF 大小，例如 `xKB` |
-| `publishDate` | string | 发布日期，可能为空 |
+| `publishDate` | string | 发布日期，同上；为空时导入 Zotero 的 `date` 回退成纯年份 |
 | `capturedAt` | string | 抓取时间 |
 | `status` | string | 文章处理状态：`presented` / `selected` / `imported` / `failed` |
 | `zoteroKey` | string | 导入后的 Zotero key |

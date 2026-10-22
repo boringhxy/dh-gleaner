@@ -27,7 +27,7 @@ from typing import List, NoReturn
 
 from . import __version__
 from .config import credentialHint, isZoteroConfigured, loadConfig
-from .logging_setup import setupLogging
+from .logging_setup import forceUtf8, setupLogging
 from .paths import configTemplatePath, getPaths, setDataDir
 from .presenter import getArticleByIndex, renderAbstract
 from .review_spreadsheet import exportReviewSpreadsheet
@@ -628,6 +628,9 @@ def cmdImport(args, cfg):
 # --------------------------------------------------------------------------
 
 def main():
+    # 帮助文本与所有结果输出都是中文：Windows 非 UTF-8 区域的控制台默认 cp1252，
+    # 不先固定编码的话连 `--help` 都会抛 UnicodeEncodeError。
+    forceUtf8(sys.stdout)
     parser = argparse.ArgumentParser(
         description="数字人文期刊采集器",
         formatter_class=argparse.RawDescriptionHelpFormatter,

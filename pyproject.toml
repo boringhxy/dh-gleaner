@@ -23,17 +23,20 @@ classifiers = [
   "Topic :: Text Processing :: Markup :: HTML",
   "Topic :: Sociology",
 ]
+# 上界只封到下一个 major：这些库的 minor 版本会加功能但基本不破接口，封到 major
+# 就够挡住「某天 pipx 重装时自动升到一个没测过的接口」这类事故。上界必须容得下
+# 当前已验证的组合（requests 2.34 / bs4 4.15 / lxml 6.1 / pyzotero 1.16 / mcp 2.3）。
 dependencies = [
-  "requests>=2.31.0",
-  "beautifulsoup4>=4.12.0",
-  "lxml>=4.9.0",
-  "pyzotero>=1.5.0",
+  "requests>=2.31.0,<3",
+  "beautifulsoup4>=4.12.0,<5",
+  "lxml>=4.9.0,<7",
+  "pyzotero>=1.5.0,<2",
 ]
 
 [project.optional-dependencies]
 # 下界必须是 2.0.0：MCP 层用的是 `mcp.server.mcpserver.MCPServer`（2.0.0 才引入），
 # 1.x 的 mcp.server 下只有 fastmcp/，装上了也会 ImportError。
-mcp = ["mcp>=2.0.0"]
+mcp = ["mcp>=2.0.0,<3"]
 dev = ["ruff>=0.6.0"]
 
 [project.scripts]
@@ -59,7 +62,6 @@ include = [
   "tests",
   "docs",
   "main.py",
-  "config.local.example.json",
   "README.md",
   "README.en.md",
   "CHANGELOG.md",

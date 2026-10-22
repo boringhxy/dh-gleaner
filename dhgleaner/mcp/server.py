@@ -20,7 +20,7 @@ import sys
 
 from .. import __version__
 from ..config import loadConfig
-from ..logging_setup import setupLogging
+from ..logging_setup import forceUtf8, setupLogging
 
 INSTRUCTIONS = """数字人文期刊采集器：按刊按期巡检中文期刊目录页，人工筛选后再写入 Zotero。
 
@@ -56,6 +56,9 @@ def buildServer():
 
 def main() -> None:
     """控制台入口：把日志钉在 stderr，然后跑 stdio 服务。"""
+    # stdio 传输按规范就是 UTF-8。Windows 非 UTF-8 区域默认 cp1252，
+    # 含中文期刊名的 JSON-RPC 响应会在写出时抛 UnicodeEncodeError。
+    forceUtf8(sys.stdout)
     try:
         cfg = loadConfig()
         logFile = cfg.get("logFile", "logs/capture.log")

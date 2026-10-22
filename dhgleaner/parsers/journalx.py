@@ -20,7 +20,7 @@ import time
 from typing import List, Optional, Tuple
 from urllib.parse import urljoin
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from ..http_util import FetchBlocked, FetchFailed, fetchHtml
 from ..models import Article, IssueInfo
@@ -34,6 +34,21 @@ _KW_RE = re.compile(r"中文关键词\s*[：:]\s*(.*?)(?:英文关键词|英文�
 _PAGE_RE = re.compile(r"(20\d{2})\s*[,，]\s*(\d+)\s*\(\s*(\d+)\s*\)\s*:\s*(\d+)\s*-\s*(\d+)")
 _ISSUE_RE = re.compile(r"(20\d{2})\s*[,，]\s*(\d+)\s*\(\s*(\d+)\s*\)")
 _TITLE_HREF_RE = re.compile(r"view_abstract\.aspx\?file_no=")
+
+
+def _titleLink(tr: Tag) -> Optional[Tag]:
+    """这一行的题名链接；不是题名的 view_abstract 链接返回 None。
+
+    必须和「取题名」用同一口径：jlis 的年期页行里也挂着一个 `view_abstract.aspx`
+    链接，文本是「摘要」。按 href 判断就会把这一行当成下一篇文章的开头，扫不到卷期页。
+    """
+    link = tr.find("a", href=_TITLE_HREF_RE)
+    if link is None:
+        return None
+    title = cleanText(link.get_text(" ", strip=True))
+    if not title or title == "摘要" or "下载" in title:
+        return None
+    return link
 
 
 class JournalXParser(BaseParser):
@@ -140,7 +155,8 @@ class JournalXParser(BaseParser):
     def _rows(self, soup: BeautifulSoup, year: int, quarter: int) -> List[Article]:
         """issue_list 页：每篇有题名链接（view_abstract?file_no=）；按 file_no 去重。
 
-        作者在其后第一个无题名链接的 tr；年期页在其后 tr 内（jlis 带页码，gtxk 仅 年,卷(期)）。
+        作者与年期页都在题名行之后、下一个题名行之前的若干 tr 里，按行内容而不是行号判定
+        （jlis 带页码，gtxk 仅 年,卷(期)）。
         """
         articles: List[Article] = []
         seen: set[str] = set()
@@ -148,9 +164,9 @@ class JournalXParser(BaseParser):
         for i, tr in enumerate(trs):
             if tr.find("tr"):  # 跳过嵌套表格的外层包裹 tr（gtxk 把整页目录套在大 tr 里）
                 continue
-            link = tr.find("a", href=_TITLE_HREF_RE)
+            link = _titleLink(tr)
             title = cleanText(link.get_text(" ", strip=True)) if link else ""
-            if not (link and title and title != "摘要" and "下载" not in title):
+            if not link:
                 continue
             if isFrontMatterTitle(title):
                 continue
@@ -161,34 +177,40 @@ class JournalXParser(BaseParser):
                 continue
             seen.add(fileNo)
 
+            # 从题名行往后扫，遇到下一个题名行即停。此前是按 (i+1, i+2, i+3) 的
+            # 固定行号取作者与年期页，等于假设「每篇恰好 3 个 tr」；站点多插一行
+            # （作者单位、DOI）就会读到下一篇文章的年期页，把别人的卷期页挂到这篇上。
             authors: List[str] = []
-            if i + 1 < len(trs) and not trs[i + 1].find("a", href=_TITLE_HREF_RE):
-                authorText = trs[i + 1].get_text(" ", strip=True)
-                if authorText:
-                    authors = [a.strip() for a in re.split(r"[，,;；、\s]+", authorText) if a.strip()]
-
             volume: Optional[int] = None
             issue = quarter
             startPage = endPage = 0
             issueDisplay = ""
             articleYear = year
-            for j in (i + 1, i + 2, i + 3):
-                if j >= len(trs):
+            for row in trs[i + 1:]:
+                if row.find("tr"):  # 嵌套表格的包裹行，整页文本会淹没判定
+                    continue
+                if _titleLink(row):
                     break
-                text = trs[j].get_text(" ", strip=True)
+                if authors and volume is not None:  # 作者与年期页都齐了，不必再往后看
+                    break
+                text = row.get_text(" ", strip=True)
+                if not text:
+                    continue
                 pageMatch = _PAGE_RE.search(text)
-                if pageMatch:
-                    articleYear = int(pageMatch.group(1))
-                    volume, issue = int(pageMatch.group(2)), int(pageMatch.group(3))
-                    startPage, endPage = int(pageMatch.group(4)), int(pageMatch.group(5))
+                issueMatch = None if pageMatch else _ISSUE_RE.search(text)
+                if pageMatch or issueMatch:
+                    if volume is not None:  # 已有年期页，后面的行不再覆盖
+                        continue
+                    matched = pageMatch or issueMatch
+                    articleYear = int(matched.group(1))
+                    volume, issue = int(matched.group(2)), int(matched.group(3))
+                    if pageMatch:
+                        startPage, endPage = int(pageMatch.group(4)), int(pageMatch.group(5))
                     issueDisplay = f"{articleYear}, {volume}({issue})"
-                    break
-                issueMatch = _ISSUE_RE.search(text)
-                if issueMatch:
-                    articleYear = int(issueMatch.group(1))
-                    volume, issue = int(issueMatch.group(2)), int(issueMatch.group(3))
-                    issueDisplay = f"{articleYear}, {volume}({issue})"
-                    break
+                    continue
+                if authors:  # 只认第一条非年期页行为作者，多插的说明行不当作者
+                    continue
+                authors = [a.strip() for a in re.split(r"[，,;；、\s]+", text) if a.strip()]
 
             articles.append(Article(
                 journal=self.journalName,

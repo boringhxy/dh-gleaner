@@ -77,3 +77,29 @@ REPLACEMENT_CHAR = "\ufffd"
 def hasDecodingGarbage(*texts: str) -> bool:
     """任一文本含 U+FFFD 即认为解码出错 —— 这类清单不该当成可信结果。"""
     return any(REPLACEMENT_CHAR in (text or "") for text in texts)
+
+
+_DATE_RE = re.compile(r"^(\d{4})(?:-(\d{1,2})(?:-(\d{1,2}))?)?$")
+
+
+def normalizeDate(raw: str) -> str:
+    """把页面文本里的刊出日期规范成 ISO（``2026-06-28`` / ``2026-06`` / ``2026``）。
+
+    解析期次的正则用的是宽松的 ``[\\d-]+``，``--``、``2026-13-40`` 这类脏值都会被抓到。
+    认不出来时返回空串而不是原样保留：``zotero_client`` 会把条目的 ``date`` 回退成纯年份，
+    而一个 Zotero 解析不出的怪字符串会一路带到用户的库里，比只给年份更难发现。
+    """
+    text = (raw or "").strip().replace(".", "-").replace("/", "-")
+    match = _DATE_RE.match(text)
+    if not match:
+        return ""
+    year, month, day = match.groups()
+    if month is not None and not 1 <= int(month) <= 12:
+        return ""
+    if day is not None and not 1 <= int(day) <= 31:
+        return ""
+    if month is None:
+        return year
+    if day is None:
+        return f"{year}-{int(month):02d}"
+    return f"{year}-{int(month):02d}-{int(day):02d}"

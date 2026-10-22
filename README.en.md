@@ -72,18 +72,18 @@ dhgleaner doctor
 
 ## Quick start
 
-Capturing and screening need **no Zotero credentials** — try it right after install:
+Capturing and screening need **no Zotero credentials** — try it right after install. Fetch one issue's table of contents, then display the shortlist and note the indices you want:
 
 ```bash
-dhgleaner capture --journal "数字人文研究" --year 2026 --volume 6 --issue 2   # 1. Fetch the issue TOC
-dhgleaner review                 # 2. Read the shortlist and note the indices you want
+dhgleaner capture --journal "数字人文研究" --year 2026 --volume 6 --issue 2
+dhgleaner review
 ```
 
-Configure your own credentials only when you're ready to write into Zotero:
+Configure your own credentials only when you're ready to write into Zotero. `init` asks for the credentials interactively, tests the connection and optionally creates the Collection tree; `import --selection` writes only the articles you picked:
 
 ```bash
-dhgleaner init                        # 3. Interactive setup: enter credentials, test connection, optionally create collections
-dhgleaner import --selection "1,3,5"  # 4. Import only the selected articles
+dhgleaner init
+dhgleaner import --selection "1,3,5"
 ```
 
 `dhgleaner init` writes credentials to `config.local.json` under the data dir (never committed, never uploaded, never echoed); in a non-interactive shell it prints manual steps instead of blocking. To check readiness only, run `dhgleaner doctor --zotero`.
@@ -139,7 +139,7 @@ dhgleaner capture --journal "图书馆杂志" --year x --issue x
 dhgleaner capture-channel --journal "图书馆杂志" --channel "数字人文"
 dhgleaner capture --journal "中国数字人文" --url "real contents page URL"
 dhgleaner capture --journal "数位典藏与数位人文" --url "real contents page URL"
-dhgleaner capture --all-journals --year x --issue x   # explicitly capture every configured journal
+dhgleaner capture --all-journals --year x --issue x
 ```
 
 `capture --year x --issue x` without a journal is rejected — capturing everything requires the explicit `--all-journals` flag.
@@ -177,34 +177,36 @@ Journals marked `harvestOnly: true` take part in the harvest rotation only: `cap
 
 ### Screen and import
 
-```bash
-dhgleaner review                                        # re-display the most recent shortlist
-dhgleaner abstract --index 1                            # show the full abstract of one article
-dhgleaner export-review                                 # export data/review_selection.xlsx
-dhgleaner import --spreadsheet data/review_selection.xlsx          # import rows ticked in the sheet
-dhgleaner import --spreadsheet data/review_selection.xlsx --dry-run # preview only
-dhgleaner import --selection "1,3,5"                    # import by index
-dhgleaner import --titles-file "titles.txt" --confirm-titles       # import by title matching
-dhgleaner import --selection "都不要"                    # skip this batch entirely
-```
+| Command | What it does |
+| --- | --- |
+| `dhgleaner review` | Re-display the most recent shortlist |
+| `dhgleaner abstract --index 1` | Show the full abstract of one article |
+| `dhgleaner export-review` | Export `data/review_selection.xlsx` |
+| `dhgleaner import --spreadsheet data/review_selection.xlsx` | Import the rows ticked in the sheet |
+| `dhgleaner import --spreadsheet data/review_selection.xlsx --dry-run` | Preview only |
+| `dhgleaner import --selection "1,3,5"` | Import by index |
+| `dhgleaner import --titles-file "titles.txt" --confirm-titles` | Import by title matching |
+| `dhgleaner import --selection "都不要"` | Skip this batch entirely |
 
 `export-review` writes `data/review_selection.xlsx`; set the "是否导入" column to "是" on the "筛选" sheet, then run `import --spreadsheet`.
 
-A **selection basket** is handy when you browse and collect as you go:
+A **selection basket** is handy when you browse and collect as you go: `--list` shows the current basket, `--search` finds indices by keyword, `--add` / `--remove` change the basket, `--clear` empties it, and `--import` writes everything in the basket.
 
 ```bash
-dhgleaner screen --list                     # current basket
-dhgleaner screen --search "keyword"         # find indices by keyword
-dhgleaner screen --add "1,3-5"              # add to the basket
+dhgleaner screen --list
+dhgleaner screen --search "keyword"
+dhgleaner screen --add "1,3-5"
 dhgleaner screen --remove "3"
 dhgleaner screen --clear
-dhgleaner screen --import                   # import everything in the basket
+dhgleaner screen --import
 ```
 
 ### Misc
 
+`--data-dir` applies to that one call only, for pointing at a temporary data directory:
+
 ```bash
-dhgleaner --data-dir /path/to/dir <subcommand>   # use a temporary data directory
+dhgleaner --data-dir /path/to/dir <subcommand>
 dhgleaner --help
 ```
 
@@ -476,11 +478,12 @@ git clone https://github.com/boringhxy/dh-gleaner.git
 cd dh-gleaner
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev,mcp]"      # mcp is optional: without it, 1 server-registration check is skipped
-
-python -B -m unittest discover -s tests -v    # unit tests
-ruff check .                                  # static checks
+pip install -e ".[dev,mcp]"
+python -B -m unittest discover -s tests -v
+ruff check .
 ```
+
+`[dev]` provides `ruff`, `[mcp]` the MCP layer and its tests. The tests run without `mcp` too — one server-registration check is skipped, everything else behaves the same. The last two commands are the unit tests and the static check; both must be clean before you open a PR.
 
 See `CONTRIBUTING.md` for contribution rules and hard limits, `SECURITY.md` for reporting vulnerabilities, and `CHANGELOG.md` for version history. Pull requests use the checklist in `.github/PULL_REQUEST_TEMPLATE.md`.
 

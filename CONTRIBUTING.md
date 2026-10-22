@@ -55,6 +55,9 @@ python -B -m unittest discover -s tests -v
 - 跟随现有结构：业务逻辑在 `service.py` 及同级模块，CLI 只负责解析参数与打印，MCP 层只负责包装与错误分类。
 - `dhgleaner/mcp/` 下**禁止** `print`——MCP 用 stdout 传 JSON-RPC，一行打印就会损坏协议。这条由 ruff 的 `T20` 规则强制。
 - 面向用户的文案统一使用 `dhgleaner` 入口，不要写回 `python main.py`。
+- 根目录的 `main.py` 只是**兼容入口**：留给改造前就在用 `python main.py <子命令>` 的人，
+  sdist 仍打包它。它不是文档口径，也不是推荐用法——除非有人明确依赖它，否则不要围绕它
+  新增功能或测试，也不要把它当作第三个受支持的入口写进 README。
 - 提交信息用中文或英文均可，保持一事一提交。
 
 ## 提交 Pull Request

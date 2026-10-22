@@ -78,7 +78,7 @@ def getParser(parserName: str, journalName: str, httpCfg: dict, journalCfg: Opti
     """根据 parser 名称实例化对应解析器。"""
     journalCfg = journalCfg or {}
     if parserName == "journy3":
-        return Journy3Parser(journalName, httpCfg)
+        return Journy3Parser(journalName, httpCfg, baseUrl=journalCfg.get("url", ""))
     if parserName == "cnki_cbpt":
         return CnkiCbptParser(journalName, httpCfg)
     if parserName == "magtech":

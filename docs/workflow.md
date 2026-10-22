@@ -21,7 +21,7 @@
 
 ```bash
 dhgleaner capture --journal "期刊名" --year x --issue x
-dhgleaner capture --journal "期刊名" --year x --volume x --issue x   # 需要卷号时
+dhgleaner capture --journal "期刊名" --year x --volume x --issue x
 ```
 
 输入：
@@ -70,13 +70,20 @@ dhgleaner capture --journal "期刊名" --url "目录页URL"
 适用：没有常设「数字人文」栏目、DH 内容以散篇混在各栏目，且当期目录页不稳定、只能逐年翻过刊库的图情/信息刊（配置里标了 `harvestOnly: true`）。
 
 ```bash
-dhgleaner harvest --year 2026                    # 所有 harvestOnly 散篇期刊
-dhgleaner harvest --journal "现代情报" --year 2026  # 只 harvest 某一刊
-dhgleaner harvest --year 2026 --all-catalog      # 保留全年全目录并打 DH 标签
-dhgleaner harvest --year 2026 --no-abstracts     # 不抓摘要，关键词只按标题命中
-dhgleaner harvest --year 2026 --dedupe           # 按 state.json 过滤已处理文章
-dhgleaner harvest --year 2026 --dry-run          # 只打印，不覆盖 pending/review
+dhgleaner harvest --year 2026
+dhgleaner harvest --journal "现代情报" --year 2026
+dhgleaner harvest --year 2026 --all-catalog
+dhgleaner harvest --year 2026 --no-abstracts
+dhgleaner harvest --year 2026 --dedupe
+dhgleaner harvest --year 2026 --dry-run
 ```
+
+不带 `--journal` 时轮转所有 `harvestOnly` 散篇期刊。参数含义：
+
+- `--all-catalog`：保留全年全目录并打 DH 标签，不做关键词过滤。
+- `--no-abstracts`：不抓摘要，关键词只按标题命中。
+- `--dedupe`：按 `state.json` 过滤已处理文章。
+- `--dry-run`：只打印，不覆盖 `pending.json` / `review.md`。
 
 要求与行为：
 
@@ -90,12 +97,14 @@ dhgleaner harvest --year 2026 --dry-run          # 只打印，不覆盖 pending
 ## 筛选与导入
 
 ```bash
-dhgleaner review                        # 重新显示最近一次清单
-dhgleaner abstract --index x            # 查看某一篇的完整摘要
-dhgleaner export-review                 # 导出 Excel 勾选表
-dhgleaner import --selection "1,3,5"    # 按编号导入
-dhgleaner import --selection "都不要"    # 本批全部跳过
+dhgleaner review
+dhgleaner abstract --index x
+dhgleaner export-review
+dhgleaner import --selection "1,3,5"
+dhgleaner import --selection "都不要"
 ```
+
+依次是：重新显示最近一次清单、查看某一篇的完整摘要、导出 Excel 勾选表、按编号导入、本批全部跳过。
 
 筛选篮适合边看边收：
 
