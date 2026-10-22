@@ -540,9 +540,14 @@ class AgentTests(unittest.TestCase):
             }]))
 
             args = type("Args", (), {"format": "xlsx", "output": ""})()
-            main_module.cmdExportReview(args, {"http": {}, "journals": []})
+            # 结果文案是中文，而这两个用例直接调 cmd* 函数、不经过 main()，
+            # 拿不到 main() 里的 UTF-8 修正；Windows 控制台默认 cp1252 会直接抛错。
+            buffer = io.StringIO()
+            with redirect_stdout(buffer):
+                main_module.cmdExportReview(args, {"http": {}, "journals": []})
 
             self.assertTrue(paths_module.getPaths().spreadsheet.exists())
+            self.assertIn("筛选表已保存到", buffer.getvalue())
 
     def test_import_spreadsheet_uses_selected_rows(self):
         with tempDataDir():
@@ -589,6 +594,7 @@ class AgentTests(unittest.TestCase):
                 return "ok"
 
             main_module._runImport = fake_run_import
+            buffer = io.StringIO()
             try:
                 args = type("Args", (), {
                     "selection": None,
@@ -599,11 +605,16 @@ class AgentTests(unittest.TestCase):
                     "spreadsheet": str(spreadsheet),
                     "dry_run": False,
                 })()
-                main_module.cmdImport(args, {"http": {}, "journals": [], "zotero": {}})
+                # 同上：cmdImport 的进度文案是中文，直接用 Windows 控制台流会抛
+                # UnicodeEncodeError，这里把输出接走再断言。
+                with redirect_stdout(buffer):
+                    main_module.cmdImport(args, {"http": {}, "journals": [], "zotero": {}})
             finally:
                 main_module._runImport = original_run_import
 
             self.assertEqual(captured["titles"], ["空间叙事与历史地理"])
+            self.assertIn("到 Zotero...", buffer.getvalue())
+            self.assertIn("ok", buffer.getvalue())
 
     def testCliVersionFlagMatchesPackageVersion(self):
         """bug 模板要求使用者贴版本号，所以 --version 必须存在且与包内一致。"""
