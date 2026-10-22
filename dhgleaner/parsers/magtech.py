@@ -51,6 +51,9 @@ class MagtechParser(BaseParser):
         self.archivePath = cfg.get("archivePath", "/CN/article/showOldVolumn.do")
         self.archiveUrl = cfg.get("archiveUrl", "")
         self.maxScan = int(cfg.get("maxScan", 40))
+        #: 栏目分页封顶。「共 N 页」是从页面文本正则抠出来的，抠错一位数就会
+        #: 变成上万个请求，因此必须有硬上限；真需要更深的栏目在配置里调大。
+        self.maxChannelPages = int(cfg.get("maxChannelPages", 50))
         self.harvestDelay = cfg.get("harvestDelay", self.harvestDelay)
 
     def parseCurrentIssue(self, html: str) -> Tuple[IssueInfo, List[Article]]:
@@ -86,7 +89,18 @@ class MagtechParser(BaseParser):
         year = (qs.get("year") or ["0"])[0]
         totalMatch = re.search(r"共\s*(\d+)\s*页", html)
         if channelId and totalMatch:
-            for pager in range(1, int(totalMatch.group(1)) + 1):
+            total = int(totalMatch.group(1))
+            if total > self.maxChannelPages:
+                log.warning(
+                    "《%s》栏目页声称共 %d 页，超过上限 %d，只展开前 %d 页；"
+                    "若确实需要更深的分页，请在该刊配置里调大 maxChannelPages。",
+                    self.journalName,
+                    total,
+                    self.maxChannelPages,
+                    self.maxChannelPages,
+                )
+                total = self.maxChannelPages
+            for pager in range(1, total + 1):
                 pages.add(self._channelPageUrl(sourceUrl, str(pager), channelId, year))
         return sorted(pages, key=self._pageSortKey)
 

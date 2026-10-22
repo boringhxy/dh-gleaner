@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dh-gleaner"
-version = "0.1.0"
+dynamic = ["version"]
 description = "按刊按期巡检中文期刊目录页，人工筛选后再写入 Zotero 的文献采集工具"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -44,6 +44,11 @@ dhgleaner-mcp = "dhgleaner.mcp.server:main"
 Homepage = "https://github.com/boringhxy/dh-gleaner"
 Repository = "https://github.com/boringhxy/dh-gleaner"
 Issues = "https://github.com/boringhxy/dh-gleaner/issues"
+
+[tool.hatch.version]
+# 版本号只有 `dhgleaner/__init__.py` 一处：`dhgleaner --version`、MCP 的
+# serverInfo 与打包元数据都读它，改两处迟早会不一致。
+path = "dhgleaner/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["dhgleaner"]

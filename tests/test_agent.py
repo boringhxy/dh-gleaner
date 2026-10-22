@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import io
 import json
+import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
+from unittest import mock
 from urllib.parse import parse_qs, urlparse
 
 import dhgleaner.capture as capture_module
 import dhgleaner.cli as main_module
 import dhgleaner.importer as importer_module
+from dhgleaner import __version__
 from dhgleaner import paths as paths_module
 from dhgleaner.capture import assessCaptureQuality, resolveIssueUrl
 from dhgleaner.importer import importArticles
@@ -20,6 +25,7 @@ from dhgleaner.review_spreadsheet import (
     loadSpreadsheetSelection,
     pendingFingerprint,
 )
+from dhgleaner.service import CaptureOutcome
 from dhgleaner.state import StateManager
 from dhgleaner.title_matcher import (
     allTitleMatchesConfirmed,
@@ -192,6 +198,39 @@ class AgentTests(unittest.TestCase):
 
         self.assertEqual(url, "http://tsglt.zslib.com.cn/CN/Y2024/V44/I1")
 
+    def test_magtech_missing_volume_base_explains_itself(self):
+        """模板含 {volume} 却没配 volumeYearBase/volumeBase 时，报错要指出缺什么。
+
+        过去这种情况 manualHint 是空串，用户只看到「未找到某期」，
+        既不知道是配置缺口，也不知道下一步该用 --url。
+        """
+        cfg = {
+            "name": "图书馆杂志",
+            "url": "https://www.libraryjournal.com.cn/",
+            "currentIssueUrl": "https://www.libraryjournal.com.cn/CN/1000-4254/current.shtml",
+            "archiveUrl": "https://www.libraryjournal.com.cn/CN/article/showOldVolumn.do",
+            "parser": "magtech",
+            "historyUrlTemplate": "https://www.libraryjournal.com.cn/CN/Y{year}/V{volume}/I{issue}",
+        }
+
+        def fake_fetch(url, *args, **kwargs):
+            if url == cfg["currentIssueUrl"]:
+                return SAMPLE_MAGTECH
+            if url == cfg["archiveUrl"]:
+                return "<html><body>no matching issue</body></html>"
+            raise AssertionError(url)
+
+        original = capture_module.fetchHtml
+        try:
+            capture_module.fetchHtml = fake_fetch
+            with self.assertRaises(RuntimeError) as ctx:
+                resolveIssueUrl(cfg, HTTP_CFG, target={"year": 2026, "issue": 10})
+        finally:
+            capture_module.fetchHtml = original
+
+        message = str(ctx.exception)
+        self.assertIn("volumeYearBase", message)
+        self.assertIn("--url", message)
 
     def test_magtech_channel_parser_pagination_issue_display_and_pdf_size(self):
         html = '''<html><body>
@@ -600,6 +639,67 @@ class AgentTests(unittest.TestCase):
                 main_module._runImport = original_run_import
 
             self.assertEqual(captured["titles"], ["空间叙事与历史地理"])
+
+    def testCliVersionFlagMatchesPackageVersion(self):
+        """bug 模板要求使用者贴版本号，所以 --version 必须存在且与包内一致。"""
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            with mock.patch.object(sys, "argv", ["dhgleaner", "--version"]):
+                with self.assertRaises(SystemExit) as ctx:
+                    main_module.main()
+        self.assertEqual(ctx.exception.code, 0)
+        self.assertEqual(buffer.getvalue().strip(), f"dh-gleaner {__version__}")
+
+
+class CaptureExitCodeTests(unittest.TestCase):
+    """抓取命令必须能用退出码判断成败，cron / CI 才知道这次算不算数。"""
+
+    def outcome(self, status: str):
+        return CaptureOutcome(
+            journal="测试刊",
+            issue="2026年 第6卷 第2期",
+            markdown="# 清单",
+            articles=[],
+            quality=status,
+            reason="测试原因",
+            status=status,
+            collected=[],
+        )
+
+    def testStatusMapsToDistinctCodes(self):
+        self.assertEqual(main_module._captureExitCode(self.outcome("success")), 0)
+        self.assertEqual(main_module._captureExitCode(self.outcome("suspect")), 3)
+        self.assertEqual(main_module._captureExitCode(self.outcome("failed")), 1)
+
+    def runCaptureMain(self, status: str):
+        argv = ["dhgleaner", "capture", "--journal", "图书馆论坛", "--year", "2026", "--issue", "2"]
+        original = main_module.captureIssue
+        originalLogging = main_module.setupLogging
+        try:
+            with tempDataDir():
+                main_module.captureIssue = lambda *a, **k: self.outcome(status)
+                # main() 里的 setDataDir(None) 会重算数据目录并落回当前工作目录，
+                # 真跑 setupLogging 就会打开仓库里的 logs/capture.log。
+                main_module.setupLogging = lambda *a, **k: None
+                with redirect_stdout(io.StringIO()):
+                    with mock.patch.object(sys, "argv", argv):
+                        main_module.main()
+        finally:
+            main_module.captureIssue = original
+            main_module.setupLogging = originalLogging
+
+    def testFailedCaptureExitsNonZero(self):
+        with self.assertRaises(SystemExit) as ctx:
+            self.runCaptureMain("failed")
+        self.assertEqual(ctx.exception.code, 1)
+
+    def testSuspectCaptureExitsWithItsOwnCode(self):
+        with self.assertRaises(SystemExit) as ctx:
+            self.runCaptureMain("suspect")
+        self.assertEqual(ctx.exception.code, 3)
+
+    def testSuccessfulCaptureDoesNotExit(self):
+        self.runCaptureMain("success")
 
 
 if __name__ == "__main__":

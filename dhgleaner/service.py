@@ -25,7 +25,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Optional, Sequence
 
-from .capture import assessCaptureQuality, captureAll, captureChannel
+from .capture import CaptureFailure, assessBatchQuality, captureAll, captureChannel
 from .config import credentialHint, isZoteroConfigured, loadConfig
 from .harvest import harvestAll
 from .importer import importArticlesDetailed
@@ -148,7 +148,7 @@ def savePending(
     return backups
 
 
-def saveCaptureStatus(status: str, message: str, results=None) -> Path | None:
+def saveCaptureStatus(status: str, message: str, results=None, failures=None) -> Path | None:
     """记录最近一次 capture 状态；失败时不覆盖旧 review。"""
     getPaths().captureStatus.parent.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -159,6 +159,7 @@ def saveCaptureStatus(status: str, message: str, results=None) -> Path | None:
         "pendingPath": str(getPaths().pending),
         "reviewIsStale": status != "success",
         "results": [],
+        "failures": [f.toDict() for f in failures or []],
     }
     for name, issue, articles in results or []:
         payload["results"].append({
@@ -234,10 +235,16 @@ class CaptureOutcome:
     backups: List[Path] = field(default_factory=list)
     wrotePending: bool = False
     collected: List[tuple] = field(default_factory=list, repr=False)
+    failures: List[CaptureFailure] = field(default_factory=list)
 
     @property
     def articleCount(self) -> int:
         return len(self.articles)
+
+    @property
+    def blockedJournals(self) -> List[str]:
+        """被站点明确拒绝自动化的刊 —— 重试无用，得换 URL 或转人工。"""
+        return [f.journal for f in self.failures if f.kind == "blocked"]
 
 
 def _finishCapture(
@@ -255,13 +262,23 @@ def _finishCapture(
         outcome.backups = savePending(
             outcome.markdown, outcome.articles, backup=True, note=note, captureType=captureType
         )
-        saveCaptureStatus("success", f"共捕获 {outcome.articleCount} 篇文章", outcome.collected)
+        saveCaptureStatus("success", f"共捕获 {outcome.articleCount} 篇文章", outcome.collected, outcome.failures)
         outcome.wrotePending = True
     elif outcome.articleCount > 0:
-        saveCaptureStatus("suspect", f"本次抓取疑似误抓，旧筛选清单未覆盖：{outcome.reason}", outcome.collected)
+        saveCaptureStatus(
+            "suspect",
+            f"本次抓取疑似误抓，旧筛选清单未覆盖：{outcome.reason}",
+            outcome.collected,
+            outcome.failures,
+        )
         outcome.status = "suspect"
     else:
-        saveCaptureStatus("failed", "本次未捕获到文章，旧筛选清单未覆盖", outcome.collected)
+        saveCaptureStatus(
+            "failed",
+            f"本次未捕获到文章，旧筛选清单未覆盖：{outcome.reason}" if outcome.reason else "本次未捕获到文章，旧筛选清单未覆盖",
+            outcome.collected,
+            outcome.failures,
+        )
         outcome.status = "failed"
     return outcome
 
@@ -276,7 +293,7 @@ def captureIssue(
     dryRun: bool = False,
 ) -> CaptureOutcome:
     """按年期或目录页 URL 抓取。journalName 为空串表示抓配置中的全部期刊。"""
-    results = captureAll(
+    results, failures = captureAll(
         cfg["journals"],
         cfg["http"],
         stateManager(cfg),
@@ -288,7 +305,7 @@ def captureIssue(
     )
     markdown, articles = renderCatalog(results)
     firstIssue: IssueInfo | None = results[0][1] if results else None
-    quality, reason = assessCaptureQuality(firstIssue, articles, captureType="issue")
+    quality, reason = assessBatchQuality(results, failures, captureType="issue")
     outcome = CaptureOutcome(
         journal=journalName or "全部期刊",
         issue=firstIssue.label() if firstIssue else "",
@@ -296,8 +313,9 @@ def captureIssue(
         articles=articles,
         quality=quality,
         reason=reason,
-        status="success" if (articles and quality == "success") else "failed",
+        status=quality,
         collected=results,
+        failures=failures,
     )
     return _finishCapture(outcome, captureType="issue", note="", dryRun=dryRun)
 
@@ -313,7 +331,7 @@ def captureJournalChannel(
     dryRun: bool = False,
 ) -> CaptureOutcome:
     """按栏目抓取跨期文章清单。"""
-    issue, articles = captureChannel(
+    issue, articles, failure = captureChannel(
         journalConfig,
         cfg["http"],
         stateManager(cfg),
@@ -322,8 +340,9 @@ def captureJournalChannel(
         dedupe=bool(dedupe),
     )
     results = [(journalName, issue, articles)]
+    failures = [failure] if failure else []
     markdown, rendered = renderCatalog(results)
-    quality, reason = assessCaptureQuality(issue, rendered, captureType="channel")
+    quality, reason = assessBatchQuality(results, failures, captureType="channel")
     note = f"栏目抓取: 《{journalName}》{channelName}；每篇文章保留原站点年卷期。"
     outcome = CaptureOutcome(
         journal=journalName,
@@ -332,8 +351,9 @@ def captureJournalChannel(
         articles=rendered,
         quality=quality,
         reason=reason,
-        status="success" if (rendered and quality == "success") else "failed",
+        status=quality,
         collected=results,
+        failures=failures,
     )
     return _finishCapture(outcome, captureType="channel", note=note, dryRun=dryRun)
 
@@ -354,7 +374,7 @@ def captureHarvest(
     renderCatalog → 质量闸门 → savePending，因此 screen / import 下游照常可用。
     journalName 为空串时 harvest 配置中所有标了 ``harvestOnly`` 的散篇期刊。
     """
-    results = harvestAll(
+    results, failures = harvestAll(
         cfg["journals"],
         cfg["http"],
         stateManager(cfg),
@@ -365,8 +385,7 @@ def captureHarvest(
         dhOnly=dhOnly,
     )
     markdown, articles = renderCatalog(results)
-    firstIssue: IssueInfo | None = results[0][1] if results else None
-    quality, reason = assessCaptureQuality(firstIssue, articles, captureType="harvest")
+    quality, reason = assessBatchQuality(results, failures, captureType="harvest")
     scope = f"《{journalName}》" if journalName else "全部散篇期刊"
     note = (
         f"{year} 年散篇 harvest：{scope}；"
@@ -379,8 +398,9 @@ def captureHarvest(
         articles=articles,
         quality=quality,
         reason=reason,
-        status="success" if (articles and quality == "success") else "failed",
+        status=quality,
         collected=results,
+        failures=failures,
     )
     return _finishCapture(outcome, captureType="harvest", note=note, dryRun=dryRun)
 

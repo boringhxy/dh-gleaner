@@ -25,6 +25,7 @@ import sys
 from pathlib import Path
 from typing import List, NoReturn
 
+from . import __version__
 from .config import credentialHint, isZoteroConfigured, loadConfig
 from .logging_setup import setupLogging
 from .paths import configTemplatePath, getPaths, setDataDir
@@ -86,10 +87,50 @@ def _fail(message: str) -> NoReturn:
     raise SystemExit(message)
 
 
+#: 抓取类命令的退出码。用 3 而不是 2 —— 2 已经被 argparse 的参数错误占用，
+#: 脚本里两者混在一起就没法区分「我命令写错了」和「站点没给数据」。
+EXIT_OK = 0
+EXIT_FAILED = 1
+EXIT_SUSPECT = 3
+
+
+def _captureExitCode(outcome) -> int:
+    """把抓取质量映射成退出码，供 cron / CI 判断是否需要人工看一眼。
+
+    `suspect` 也返回非零：清单是抓到了，但闸门认为它不像有效目录，旧的
+    `pending.json` 没有被覆盖 —— 自动化的调用方需要知道这次不算数。
+    """
+    if outcome.status == "success":
+        return EXIT_OK
+    if outcome.status == "suspect":
+        return EXIT_SUSPECT
+    return EXIT_FAILED
+
+
 def _ok(label: str, ok: bool, detail: str = ""):
     icon = "✅" if ok else "⚠️"
     suffix = f" — {detail}" if detail else ""
     print(f"{icon} {label}{suffix}")
+
+
+def _printCaptureFailures(outcome) -> None:
+    """把每本刊的失败原因打到终端。
+
+    过去这些只进日志文件，用户看到的只是「文章数偏少」，无法区分
+    「站点拒绝自动化」和「网络抖动，重试就好」——两者的应对完全相反。
+    """
+    if not outcome.failures:
+        return
+    blocked = [f for f in outcome.failures if f.kind == "blocked"]
+    retryable = [f for f in outcome.failures if f.kind != "blocked"]
+    if blocked:
+        print("\n⛔ 以下期刊拒绝自动化访问，重试无用（请用 --url 指定可直接打开的目录页，或转人工）：")
+        for failure in blocked:
+            print(f"  - {failure.describe()}")
+    if retryable:
+        print("\n⚠️ 以下期刊本次没抓到，可稍后重试：")
+        for failure in retryable:
+            print(f"  - {failure.describe()}")
 
 
 def _isInteractive() -> bool:
@@ -277,6 +318,7 @@ def cmdCapture(args, cfg):
         dedupe=bool(args.dedupe),
     )
     print(outcome.markdown)
+    _printCaptureFailures(outcome)
 
     paths = getPaths()
     if outcome.status == "success":
@@ -292,6 +334,8 @@ def cmdCapture(args, cfg):
         print(f"\n--- ⚠️ 本次未捕获到文章，已保留原有筛选清单: {paths.review} ---")
         print(f"⚠️ 当前 review.md 仍是上一次成功捕获的旧内容；本次失败状态已写入 {paths.captureStatus}")
         print("如目标期次网页可直接访问，请重试：dhgleaner capture --journal 期刊名 --url 目录页URL")
+
+    return _captureExitCode(outcome)
 
 
 def cmdCaptureChannel(args, cfg):
@@ -312,6 +356,7 @@ def cmdCaptureChannel(args, cfg):
         dedupe=bool(args.dedupe),
     )
     print(outcome.markdown)
+    _printCaptureFailures(outcome)
 
     paths = getPaths()
     if outcome.status == "success":
@@ -326,6 +371,8 @@ def cmdCaptureChannel(args, cfg):
     else:
         print(f"\n--- ⚠️ 栏目《{channelName}》未捕获到文章，已保留原有筛选清单: {paths.review} ---")
         print(f"本次失败状态已写入 {paths.captureStatus}")
+
+    return _captureExitCode(outcome)
 
 
 def cmdHarvest(args, cfg):
@@ -348,6 +395,7 @@ def cmdHarvest(args, cfg):
         dryRun=bool(args.dry_run),
     )
     print(outcome.markdown)
+    _printCaptureFailures(outcome)
 
     paths = getPaths()
     scope = f"《{journalName}》" if journalName else "全部散篇期刊"
@@ -368,6 +416,8 @@ def cmdHarvest(args, cfg):
         print(f"本次失败状态已写入 {paths.captureStatus}")
         if args.dry_run:
             print("（本次为 --dry-run 预览，未落盘；去掉 --dry-run 可写入待筛清单。）")
+
+    return _captureExitCode(outcome)
 
 
 # --------------------------------------------------------------------------
@@ -583,6 +633,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     dataDirHelp = "覆盖数据目录（单次生效）；未指定时依次取 DHGLEANER_DATA_DIR、当前目录、~/.dhgleaner"
+    parser.add_argument("--version", action="version", version=f"dh-gleaner {__version__}", help="打印版本号后退出")
     parser.add_argument("--data-dir", help=dataDirHelp)
     sub = parser.add_subparsers(dest="command", help="子命令")
 
@@ -674,7 +725,11 @@ def main():
         "init": cmdInit,
         "init-collections": cmdInitCollections,
     }
-    handlers[args.command](args, cfg)
+    exitCode = handlers[args.command](args, cfg)
+    if exitCode:
+        # 用 SystemExit 而不是 return：`dhgleaner`、`python -m dhgleaner`、
+        # `python main.py` 三个入口都是直接调 main()，return 值会被丢掉。
+        raise SystemExit(exitCode)
 
 
 if __name__ == "__main__":

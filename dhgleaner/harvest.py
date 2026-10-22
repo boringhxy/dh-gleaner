@@ -14,7 +14,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Tuple
 
-from .capture import getParser
+from .capture import KIND_FAILED, CaptureFailure, classifyFetchError, getParser
 from .keywords import isDh, tagArticles
 from .models import Article, IssueInfo
 from .state import StateManager
@@ -38,24 +38,28 @@ def harvestJournal(
     withAbstracts: bool = True,
     dedupe: bool = False,
     dhOnly: bool = True,
-) -> Tuple[Optional[IssueInfo], List[Article]]:
-    """按年 harvest 单本期刊，返回 (期次标记, 文章列表)。
+) -> Tuple[Optional[IssueInfo], List[Article], Optional[CaptureFailure]]:
+    """按年 harvest 单本期刊，返回 ``(期次标记, 文章列表, 失败记录)``。
 
     每篇文章都会被打上 dhMatched / histAiMatched 双标签；``dhOnly=True``（默认）时
     只保留命中任一表的 DH 散篇，``False`` 时保留全目录（仍带标签）。
+
+    失败记录为 ``None`` 而文章列表为空，是合法结果——说明全目录抓到了，只是筛完
+    没有 DH 命中。这与「整年全目录 0 篇」不同，后者几乎一定是解析或定位出了问题。
     """
     name = journalCfg["name"]
     parserName = journalCfg["parser"]
     parser = getParser(parserName, name, httpCfg, journalCfg)
     if not getattr(parser, "supportsHarvest", False):
-        log.error("《%s》解析器 %s 不支持按年 harvest", name, parserName)
-        return None, []
+        detail = f"解析器 {parserName} 不支持按年 harvest"
+        log.error("《%s》%s", name, detail)
+        return None, [], CaptureFailure(name, "unsupported", KIND_FAILED, detail)
 
     try:
         issue, articles = parser.harvestYear(year, withAbstracts=withAbstracts)
     except Exception as e:  # noqa: BLE001 — 单刊失败不应中断整轮 harvest
         log.error("《%s》%d 年 harvest 失败: %s", name, year, e)
-        return None, []
+        return None, [], CaptureFailure(name, "fetch", classifyFetchError(e), f"{year} 年 harvest 失败：{e}")
 
     articles = [a for a in articles if not isFrontMatterTitle(a.title)]
     tagArticles(articles)
@@ -74,7 +78,12 @@ def harvestJournal(
         "《%s》%d 年 harvest: 全目录 %d 篇 → 保留 %d 篇（dhOnly=%s）",
         name, year, catalogCount, len(articles), dhOnly,
     )
-    return issue, articles
+
+    if catalogCount == 0:
+        return issue, articles, CaptureFailure(
+            name, "parse", KIND_FAILED, f"{year} 年全目录解析出 0 篇，疑似页面结构变动或该年尚未上线"
+        )
+    return issue, articles, None
 
 
 def harvestAll(
@@ -87,13 +96,14 @@ def harvestAll(
     withAbstracts: bool = True,
     dedupe: bool = False,
     dhOnly: bool = True,
-) -> List[Tuple[str, Optional[IssueInfo], List[Article]]]:
-    """harvest 一批期刊。
+) -> Tuple[List[Tuple[str, Optional[IssueInfo], List[Article]]], List[CaptureFailure]]:
+    """harvest 一批期刊，返回 ``(结果三元组列表, 失败记录列表)``。
 
     - 指定 ``journalName`` 时只 harvest 该刊（须支持 harvest）；
     - 否则 harvest 配置中所有标了 ``harvestOnly`` 的散篇期刊。
     """
     results: List[Tuple[str, Optional[IssueInfo], List[Article]]] = []
+    failures: List[CaptureFailure] = []
     for journalCfg in journalsCfg:
         name = journalCfg["name"]
         if journalName:
@@ -101,9 +111,11 @@ def harvestAll(
                 continue
         elif not isHarvestJournal(journalCfg):
             continue
-        issue, articles = harvestJournal(
+        issue, articles, failure = harvestJournal(
             journalCfg, httpCfg, state,
             year=year, withAbstracts=withAbstracts, dedupe=dedupe, dhOnly=dhOnly,
         )
         results.append((name, issue, articles))
-    return results
+        if failure:
+            failures.append(failure)
+    return results, failures

@@ -82,7 +82,8 @@ dhgleaner harvest --year 2026 --dry-run          # 只打印，不覆盖 pending
 
 - 解析器需实现 `supportsHarvest` 与 `harvestYear(year)`：`founder`（方正 JSON API）、`journalx`（`issue_list.aspx` 按季枚举）、`magtech`（过刊库 `volumn_N.shtml`，自动识别 `ul.lunwen` / `div.dqml` / 经典三种皮肤）。
 - 全年文章先过前置条目过滤（目次/卷首语/征稿等），再用 `dhgleaner/keywords.py` 打 `dhMatched` / `histAiMatched` 双标签；`dhOnly`（默认）只留命中文章。
-- 逐期/逐篇请求按 `harvestDelay` 限速；只读公开页与开放 API，不绕过验证码/登录，不写 Zotero、不下 PDF。
+- 逐期/逐篇请求按 `harvestDelay` 限速（`capture-channel` 的分页之间同样限速）；只读公开页与开放 API，不绕过验证码/登录，不写 Zotero、不下 PDF。
+- 重试按 `retryInterval` 指数退避，上限 300 秒；站点返回 `Retry-After` 时优先听站点的。401/403/412 一次都不重试，直接判定为「拒绝自动化」。
 - 结果同样经质量闸门（`captureType="harvest"` 跳过「year==0」误抓判定）落到 `data/review.md` / `pending.json`，`screen` / `import` 下游照常可用。
 - `harvestOnly` 期刊会被 `capture --all-journals` 与 `doctor --network` 跳过；对它们用 `capture` 抓当期会被拒绝并提示改用 `harvest`（除非显式给 `--url`）。
 

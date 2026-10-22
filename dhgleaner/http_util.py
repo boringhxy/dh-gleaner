@@ -4,7 +4,8 @@
 
 - ``401/403/412``：站点拒绝访问（412 常见于中文期刊站点的反爬前置检查），
   重试不会变好，**立刻放弃并抛出 `FetchBlocked`**，让上层换 URL 或转人工。
-- ``408/425/429/5xx``：临时性故障，按 `retryInterval` 退避重试。
+- ``408/425/429/5xx``：临时性故障，按 `retryInterval` 指数退避重试；站点若给了
+  ``Retry-After`` 就听站点的。
 - 其他异常（连接超时、DNS 失败等）：照旧重试。
 
 抛出的异常都继承 `RuntimeError`，与改造前的调用方兼容。
@@ -14,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import Optional
 
 import requests
 
@@ -23,6 +25,8 @@ log = logging.getLogger(__name__)
 BLOCKING_STATUS = frozenset({401, 403, 412})
 #: 临时性故障 —— 值得退避重试
 RETRYABLE_STATUS = frozenset({408, 425, 429})
+#: 单次退避上限（秒）。retryInterval 是用户配的，不设顶会出现半小时的干等。
+MAX_RETRY_DELAY = 300.0
 
 
 class FetchBlocked(RuntimeError):
@@ -46,6 +50,31 @@ class FetchFailed(RuntimeError):
 
 def _isRetryableStatus(statusCode: int) -> bool:
     return statusCode in RETRYABLE_STATUS or 500 <= statusCode < 600
+
+
+def _retryAfterSeconds(exc: Exception) -> Optional[float]:
+    """读响应里的 ``Retry-After``（秒数形式）；没有或格式不认识就返回 None。"""
+    resp = getattr(exc, "response", None)
+    if resp is None:
+        return None
+    raw = resp.headers.get("Retry-After", "")
+    try:
+        return max(0.0, float(raw))
+    except (TypeError, ValueError):
+        return None
+
+
+def _retryDelay(attempt: int, retryInterval: float, exc: Exception) -> float:
+    """第 ``attempt`` 次失败后该等多久。
+
+    站点给了 ``Retry-After`` 就照它说的等 —— 那是对方明确的节流要求，比自己
+    猜更礼貌；否则按 ``retryInterval`` 指数退避，避免固定间隔在持续故障下
+    把请求打成均匀的心跳。
+    """
+    retryAfter = _retryAfterSeconds(exc)
+    if retryAfter is not None:
+        return min(retryAfter, MAX_RETRY_DELAY)
+    return min(float(retryInterval) * (2 ** (attempt - 1)), MAX_RETRY_DELAY)
 
 
 def fetchHtml(
@@ -87,7 +116,7 @@ def fetchHtml(
             lastErr = e
             log.warning("抓取失败 [%d/%d] %s: %s", attempt, maxRetries, url, e)
             if attempt < maxRetries:
-                time.sleep(retryInterval)
+                time.sleep(_retryDelay(attempt, retryInterval, e))
     raise FetchFailed(url, maxRetries, lastErr)
 
 
@@ -130,7 +159,7 @@ def fetchJson(
             lastErr = e
             log.warning("接口请求失败 [%d/%d] %s: %s", attempt, maxRetries, url, e)
             if attempt < maxRetries:
-                time.sleep(retryInterval)
+                time.sleep(_retryDelay(attempt, retryInterval, e))
     raise FetchFailed(url, maxRetries, lastErr)
 
 
@@ -175,5 +204,5 @@ def downloadFile(
             lastErr = e
             log.warning("下载失败 [%d/%d] %s: %s", attempt, maxRetries, url, e)
             if attempt < maxRetries:
-                time.sleep(retryInterval)
+                time.sleep(_retryDelay(attempt, retryInterval, e))
     raise FetchFailed(url, maxRetries, lastErr)

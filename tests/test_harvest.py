@@ -264,25 +264,27 @@ class HarvestFlowTests(unittest.TestCase):
         with tempDataDir() as dataDir:
             state = StateManager(str(Path(dataDir) / "state.json"))
             cfg = {"name": "测试散刊", "parser": "magtech", "harvestOnly": True}
-            issue, articles = harvest_module.harvestJournal(
+            issue, articles, failure = harvest_module.harvestJournal(
                 cfg, HTTP_CFG, state, year=2026, dhOnly=True
             )
             titles = [a.title for a in articles]
             self.assertEqual(titles, ["数字人文视域下的古籍整理"])
             self.assertTrue(articles[0].dhMatched)
             self.assertTrue(all(a.capturedAt for a in articles))
+            self.assertIsNone(failure, "筛完只剩一篇是合法结果，不该记为失败")
 
     def testAllCatalogKeepsBothRealArticlesWithTagging(self):
         with tempDataDir() as dataDir:
             state = StateManager(str(Path(dataDir) / "state.json"))
             cfg = {"name": "测试散刊", "parser": "magtech", "harvestOnly": True}
-            issue, articles = harvest_module.harvestJournal(
+            issue, articles, failure = harvest_module.harvestJournal(
                 cfg, HTTP_CFG, state, year=2026, dhOnly=False
             )
             titles = [a.title for a in articles]
             self.assertEqual(titles, ["数字人文视域下的古籍整理", "明清社会经济史札记"])
             self.assertTrue(articles[0].dhMatched)
             self.assertEqual(articles[1].dhMatched, [])
+            self.assertIsNone(failure)
 
     def testHarvestAllSelectsOnlyHarvestJournalsByDefault(self):
         with tempDataDir() as dataDir:
@@ -291,8 +293,9 @@ class HarvestFlowTests(unittest.TestCase):
                 {"name": "测试散刊", "parser": "magtech", "harvestOnly": True},
                 {"name": "普通刊", "parser": "magtech"},
             ]
-            results = harvest_module.harvestAll(journals, HTTP_CFG, state, year=2026, dhOnly=True)
+            results, failures = harvest_module.harvestAll(journals, HTTP_CFG, state, year=2026, dhOnly=True)
             self.assertEqual([name for name, _, _ in results], ["测试散刊"])
+            self.assertEqual(failures, [])
 
     def testIsHarvestJournal(self):
         self.assertTrue(harvest_module.isHarvestJournal({"harvestOnly": True}))

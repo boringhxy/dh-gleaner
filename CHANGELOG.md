@@ -11,16 +11,25 @@
 - **DH 关键词双表打标**（`dhgleaner/keywords.py`，capture 与 harvest 共用）：给每篇文章打 `dhMatched`/`histAiMatched` 双标签。判定口径——命中数字人文领域词，或历史学+AI 共现（历史词与计算方法词各≥1）；**计算方法词不单独算 DH**，以压住图情刊里「AI in LIS」论文带来的噪声。刻意排除「历史/古代/传统/文化/档案/记忆」等陷阱泛词，英文缩写大小写敏感匹配。
 - **7 本散篇期刊**入默认配置（现代情报、情报科学、中国图书馆学报、国家图书馆学刊、数字图书馆论坛、图书情报知识、信息资源管理学报），标 `harvestOnly: true`：只进 harvest 轮转，被 `capture --all-journals` 与 `doctor --network` 跳过，用 `capture` 抓当期会被拒绝并提示改用 `harvest`（除非显式给 `--url`）。
 - `Article` 增 `keywords`/`dhMatched`/`histAiMatched` 字段；`http_util` 增 `fetchJson`（与 `fetchHtml` 同套 401/403/412 拦截与重试语义）；新增 `textutil`（文本清洗 + 前置条目识别）。
+- **`dhgleaner --version`**：打印 `dh-gleaner <版本号>`。此前没有任何途径确认使用者装的是哪一版，而 bug 模板要的 `doctor` 输出里也没有版本——同一份代码在不同 commit 上行为可能差很多。Bug 模板相应新增必填的「版本」输入框。
+- **版本号收敛到一处**：`pyproject.toml` 改用 hatchling 的 dynamic version 从 `dhgleaner/__init__.py` 的 `__version__` 读取。此前两处各写死 `0.1.0`，发版时漏改一处就会打出两个不同版本。`docs/development.md` 的发布前检查补上版本一致性一条。
 - 离线测试 `tests/test_harvest.py`（关键词打标、前置条目过滤、三皮肤解析、harvest 过滤，全部用桩不发网络请求）。
+- **抓取命令按质量返回退出码**：`capture` / `capture-channel` / `harvest` 成功 0、`failed` 1、`suspect` 3。此前无论抓到什么都是 0，cron 或 CI 包一层脚本也判断不出「这次算不算数」，只能去解析终端中文。`3` 而不是 `2`——`2` 已被 argparse 的参数错误占用，混用就分不清「命令写错了」和「站点没给数据」。走 `SystemExit` 而非返回值，因为 `dhgleaner`、`python -m dhgleaner`、`python main.py` 三个入口都是直接调 `main()`，返回值会被丢掉。
 - **反馈入口**：`.github/ISSUE_TEMPLATE/` 下三份 issue 表单——Bug 报告（索要 `dhgleaner doctor` 输出与 `data/last_capture_status.json`）、新增期刊源（索要免登录可访问的真实目录页 URL、站点平台、DH 内容分布以判定走 capture / capture-channel / harvest）、使用咨询；外加 `config.yml` 把安全问题导流到 SECURITY.md 的邮件渠道。另加 `.github/PULL_REQUEST_TEMPLATE.md`，把 CONTRIBUTING.md 的红线与提交前检查做成勾选清单。三份表单都强制确认「未粘贴 API Key」。
 
 ### 变更
 
 - **MCP 服务端**工具数 13 → 14（写本地组新增 `harvest_year`）；`list_journals` 返回增加 `harvestOnly` 字段。
+- **抓取更克制**：重试间隔从固定 `retryInterval` 改为指数退避（上限 300 秒），站点返回 `Retry-After` 时优先听站点的；`capture-channel` 的逐页请求之间接入 `harvestDelay` 限速（此前只有 harvest 路径限速）；栏目分页数加 `maxChannelPages` 硬上限（默认 50）——「共 N 页」是用正则从页面文本抠的，抠错一位数就会变成上万个请求，触顶时记为失败而非静默少给清单。补 `tests/test_fetch_policy.py` 11 个离线用例。
 - 抓取质量校验对 `captureType="harvest"` 跳过「year==0」误抓判定（散篇清单本就没有单一期次）。
 
 ### 修复
 
+- **抓取质量闸门改为逐刊判定**：`capture --all-journals` 过去把全部期刊的文章数加总后只按第一刊的期次信息判定质量（`results[0][1]`），一刊抓崩、其余正常时仍报 `success` 并覆盖上一次的 `pending.json`——正好违背「失败绝不覆盖旧清单」的承诺。现由 `assessBatchQuality` 逐刊评估，任一刊异常即整批 `suspect`，全部失败才 `failed`；合法的「空」（dedupe 命中已处理期次、harvest 筛完无命中）不再拖垮整批判定。补 `tests/test_capture_gate.py` 14 个用例，含「把 `_finishCapture` 的判定反过来、套件仍能全绿」这两条过去无人看守的落盘保护。
+- **抓取失败原因上抛，并区分「拒绝自动化」与「临时故障」**：`captureJournal` / `captureChannel` / `harvestJournal` 现在多返回一个 `CaptureFailure(journal, stage, kind, detail)`，一路带到 CLI 输出、MCP 结果与 `data/last_capture_status.json`。CLI 把 `kind="blocked"`（401/403/412）单独列为「拒绝自动化访问，重试无用」，与可重试的临时故障分开——此前两者都只躺在日志里，而 bug 模板恰恰要求使用者附上状态文件。
+- **《图书馆杂志》的配置与文档不再声称能自动抓取**：官网反爬前置检查对普通 HTTP 请求**稳定**返回 412，但 `pdfNote` 写的是「偶发」，且 `historyUrlTemplate` 含 `{volume}` 却没配 `volumeYearBase`/`volumeBase`，按年期定位过刊必然失败却只报「未找到该期」。现在三处文档（README 中英、`docs/sources.md`）都标明需手动 `--url`；缺卷号时的报错会直接指出缺 `volumeYearBase`/`volumeBase` 并给出 `--url` 出路。真实卷号未凭空填入——412 挡住就无法核实，编造只会静默生成错 URL。
+- **乱码检测进质量闸门**：标题或摘要含解码替换符 U+FFFD 时判 `suspect`。站点声明错编码、或 `apparent_encoding` 猜错时整页中文会成片变成 U+FFFD，过去这种清单看着「有文章、标题不重复」能直接判 `success` 覆盖旧清单。
+- **导航词黑名单合到一处**（`dhgleaner/textutil.py` 的 `isNavigationTitle` / `isBlacklistedTitle`）：`capture` 的质量闸门与 `generic_html` 解析器原本各维护一份词表，闸门那份不含「过刊浏览 / 在线投稿 / 关于我们 / 广告合作」，整页抓成导航时仍能报 `success` 并覆盖旧清单。合并时顺带收紧拉丁词——`Journal` / `More` 这类改为整条相等才算，避免《Journal of Digital Humanities 的引文分析》被误判。
 - **CI 恢复绿灯**：`dhgleaner/mcp/tools_capture.py` 的 import 块触发 ruff `I001`（未排序），导致 harvest 那次提交的 8 个测试矩阵格子全部挂在 Lint 步骤、只有 build 任务通过。`captureHarvest` 原本被单独拆成一个 `from ..service import` 块，现与其余无别名导入合并；带别名的 `captureIssue as _captureIssue` 按 ruff isort 规则仍需独立成块（别名 `_captureIssue` 的排序位置与原导入名不同，合并会改变顺序语义）。纯 import 整理，无行为改动。
 - **`doctor` 文案对齐新的安装方式**：依赖缺失时原本提示「请重新安装本包（`pip install -e .`）」，但 `-e` 是开发模式，与 README 改推 pipx / uv 之后自相矛盾；现改为指向 README「安装」章节，不再硬编码某一种安装方式的命令。另一处自检项标签由「配置模板（复制它来填密钥）」改为「配置模板（`dhgleaner init` 会替你写入凭据）」——pipx / uv 安装下模板深埋在 site-packages，让使用者去那儿复制并不现实，而 `init` 本来就是更好的路径（`getpass` 不回显、存完即测连接、权限 0600、覆盖前自动 `.bak`）。模板路径仍照常显示，只是不再暗示使用者去复制它。
 
@@ -31,6 +40,10 @@
 - **README.en.md 追平中文版**：补上此前完全缺失的 harvest 章节（含 DH 关键词双表判定口径）、Capture 表的 harvest 行、以及 7 本 `harvestOnly` 期刊表——英文版原本只列 6 本期刊，国际读者看不到 harvest 这条链路。
 - **Zotero 凭据配置改为以 `dhgleaner init` 为主**：原文写「把仓库里的 `config.local.example.json` 复制成 `config.local.json`」，但 pipx / uv 安装下并不存在「仓库」；改为先给交互式 `init`，手动配置则说明写进数据目录下的 `config.local.json`，并指出 `dhgleaner doctor` 会打印确切路径。
 - README 新增「反馈与求助」章节（中英对照），列清三类 issue、安全上报渠道、报 bug 时该附的两样东西，以及不会被接受的需求类型。
+- **`docs/quality-and-safety.md` 与代码对齐**：原文把「没有捕获到任何文章」列在 `suspect` 判定里，但代码返回的是 `failed`；现按 `suspect` / `failed` 分列，并补上「判定逐刊进行」、U+FFFD 检测、栏目分页触顶三条。新增「抓取节流」小节记录指数退避、401/403/412 不重试、`harvestDelay` 限速与 `maxChannelPages` 上限。`docs/mcp.md` 补上抓取类工具结果里的 `failures` / `blockedJournals` 两个逐刊字段。
+- **README 质量校验章节追平实现**：中英两版都补上「判定逐刊进行」、U+FFFD 检测、栏目分页触顶三条 `suspect` 规则，以及新的「退出码」小节和 `data/last_capture_status.json` 里 `failures` 的 `stage` / `kind` 说明；`docs/quality-and-safety.md` 同步。
+- **Bug 模板不再强制要求 `doctor` 输出**：原来这个字段是必填，但模板同时提供「安装 / 依赖」这一环节——命令装不上的人根本跑不出 `doctor`。改为选填并说明：跑不起来就贴安装报错。
+- **README 的初始化与自检命令块去掉行内 `#` 注释**：与 harvest 那次同样的理由——未开启 `interactive_comments` 的 zsh 会把 `#` 之后的内容当成参数，整块粘贴直接失败。说明改为代码块下方的列表。（README 里还有约 38 处同样的行内注释尚未一并处理。）
 - harvest 命令示例由行内注释改为参数表：行内 `#` 注释在未开启 `interactive_comments` 的 zsh 里会被当成命令参数，整块粘贴会失败。
 
 ## [0.1.0] - 2026-10-10

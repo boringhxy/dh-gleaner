@@ -15,7 +15,7 @@
 | 数字人文 | `cnki_cbpt` | 当前公开页或手动 URL | 历史期可能受 CNKI 验证码限制 |
 | 中国数字人文 | `generic_html` | 手动 URL / 人工校正 | 目录常跳转微信，作者摘要可能缺失 |
 | 数位典藏与数位人文 | `generic_html` | 手动 URL / 人工校正 | Airiti 返回内容需强校验；TADH 公告页适合人工校正 |
-| 图书馆杂志 | `magtech` | 期次抓取、栏目抓取 | 支持「数字人文」栏目分页 |
+| 图书馆杂志 | `magtech` | 需手动 `--url` | 官网反爬前置检查对普通 HTTP 请求稳定返回 412，期次与栏目抓取目前都无法自动完成；不绕过该检查。另缺 `volumeYearBase`/`volumeBase`，按年期定位过刊不可用 |
 | 图书馆论坛 | `magtech` | 期次抓取 | 支持历史 URL 模板与卷号推算 |
 
 以下散篇期刊标了 `harvestOnly: true`，只走 `harvest` 按年采集（不进 `capture --all-journals`，默认不下载 PDF）：
@@ -53,7 +53,7 @@
 - 解析当前期次与历史期次，从 archive 页查找目标期次。
 - 用 `historyUrlTemplate` 构造历史目录 URL 作为 fallback。
 - 用 `volumeYearBase` / `volumeBase` 推算卷号。
-- 支持栏目页分页（识别 `changePage(...)` 并合并全部页）。
+- 支持栏目页分页（识别 `changePage(...)` 并合并全部页）；页数上限由 `maxChannelPages` 控制（默认 50），逐页之间按 `harvestDelay` 限速。
 - 抽取每篇文章自己的 `issueDisplay` 与 `totalIssue`。
 - 按年 harvest（`supportsHarvest`）：从过刊库页枚举 `volumn_N.shtml`，自动识别 `ul.lunwen`（情报科学）/ `div.dqml`（图书情报知识、信息资源管理学报）/ 经典 `noselectrow` 三种皮肤；`lunwen`/`dqml` 列表页无内联摘要时逐篇抓详情页 `div#zhaiyao` 面板补全。经典皮肤的当期/栏目解析路径不受 harvest 改动影响。
 
@@ -64,6 +64,7 @@
   "historyUrlTemplate": "https://example.org/CN/Y{year}/V{volume}/I{issue}",
   "volumeYearBase": 2026,
   "volumeBase": 46,
+  "maxChannelPages": 50,
   "channelSources": [
     {
       "channel": "栏目名",

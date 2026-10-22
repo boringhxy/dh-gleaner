@@ -96,21 +96,31 @@ dhgleaner import --selection "1,3,5"  # 4. 只导入选中的文章
 ### 初始化
 
 ```bash
-dhgleaner init                   # 交互式引导：录入 Zotero 凭据 → 测试连接 → 可选补齐目录 → 自检
-dhgleaner init-collections       # 只读预览：列出各刊 Collection 路径缺哪些层级（不写 Zotero）
-dhgleaner init-collections --yes # 确认后真正创建缺失目录
-dhgleaner init-collections --journal "图书馆论坛" --yes   # 只补齐指定期刊
+dhgleaner init
+dhgleaner init-collections
+dhgleaner init-collections --yes
+dhgleaner init-collections --journal "图书馆论坛" --yes
 ```
+
+- `init`：交互式引导，录入 Zotero 凭据 → 测试连接 → 可选补齐目录 → 自检。
+- `init-collections`：只读预览，列出各刊 Collection 路径缺哪些层级，**不写 Zotero**。
+- `init-collections --yes`：确认后真正创建缺失目录；可用 `--journal` 只补齐指定期刊。
 
 `init-collections` 默认只预览，加 `--yes` 才会写 Zotero；导入流程本身仍不会擅自建目录。
 
 ### 自检
 
 ```bash
-dhgleaner doctor                 # 检查依赖、数据目录、配置文件
-dhgleaner doctor --zotero        # 额外连接 Zotero，逐个检查期刊 Collection
-dhgleaner doctor --network       # 额外做一次网络连通性检查
+dhgleaner --version
+dhgleaner doctor
+dhgleaner doctor --zotero
+dhgleaner doctor --network
 ```
+
+- `--version`：打印版本号；报 bug 时请连同 `doctor` 输出一起贴上。
+- `doctor`：检查依赖、数据目录、配置文件。
+- `doctor --zotero`：额外连接 Zotero，逐个检查期刊 Collection。
+- `doctor --network`：额外做一次网络连通性检查。
 
 ### 抓取
 
@@ -262,7 +272,7 @@ Zotero 中需要提前存在这些 Collection 路径：
 | 数字人文 | `https://szrw.cbpt.cnki.net/` | `cnki_cbpt` | 当前公开页可抓取；历史页可能需要用户提供 URL | 受 CNKI 页面限制，可能为空 | 默认不自动下载，导入时记录链接供手动下载 |
 | 中国数字人文 | 名录未提供稳定公开目录页 | `generic_html` | 需要用户用 `--url` 指定可访问目录页 | 尽量抽取，通常为空 | 元数据降级为主 |
 | 数位典藏与数位人文 | `http://www.tadh.org.tw/` | `generic_html` | 需要用户用 `--url` 指定可访问目录页 | 尽量抽取，通常为空 | 元数据降级为主 |
-| 图书馆杂志 | `https://www.libraryjournal.com.cn/` | `magtech` | 支持期次页；支持「数字人文」栏目全量分页抓取 | 通常可抓取 | 导入选中文章时尝试下载并挂载 |
+| 图书馆杂志 | `https://www.libraryjournal.com.cn/` | `magtech` | 支持期次页；支持「数字人文」栏目全量分页抓取 | **当前不可自动抓取**：官网反爬前置检查稳定返回 412，需用 `--url` 指定可直接打开的目录页 | 导入选中文章时尝试下载并挂载 |
 | 图书馆论坛 | `http://tsglt.zslib.com.cn/` | `magtech` | 可按配置推算卷号并使用历史 URL 模板定位公开过刊 | 通常可抓取 | 导入选中文章时尝试下载并挂载 |
 
 以下散篇期刊标了 `harvestOnly: true`，只走 `harvest` 按年采集（不进 `capture --all-journals`，默认不下载 PDF）：
@@ -392,14 +402,30 @@ pipx install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
 
 ## 抓取质量校验
 
-保存前会检查抓取质量。以下情况标记为 `suspect`，**不覆盖**旧 `review.md` / `pending.json`：
+保存前会**逐刊**检查抓取质量——13 本里 12 本抓崩、1 本正常，聚合看仍是「有文章」，但那批结果不能覆盖上一次完整的清单。以下情况标记为 `suspect`，**不覆盖**旧 `review.md` / `pending.json`：
 
 - 期次解析为 `0年第0期`，且本次是单期抓取。
 - 标题里导航、广告、平台推荐类文本占比过高。
+- 标题或摘要含解码替换符 U+FFFD，说明站点编码被判读错。
 - 标题重复比例异常。
 - `generic_html` 配置了必要页面文本，但页面缺少目标期刊、IssueID 或栏目关键词。
+- 批量抓取中部分期刊失败，但仍有其他刊出了结果。
+- 栏目分页触到 `maxChannelPages` 上限，清单可能只覆盖前若干页。
 
 遇到 `suspect` 时先看终端原因和 `data/last_capture_status.json`，确认真实目录页后用 `--url` 重试，或人工整理为 `manual_curated` 清单。
+
+### 退出码
+
+`capture` / `capture-channel` / `harvest` 的退出码可以直接给 cron、CI 或脚本判断：
+
+| 退出码 | 含义 |
+|--------|------|
+| 0 | 全部期刊抓取成功且质量正常 |
+| 1 | 本次没抓到可用结果（参数错误同样是 1） |
+| 2 | 命令行参数本身不合法（argparse） |
+| 3 | 抓到了但质量存疑，或部分期刊失败——旧清单未被覆盖，需要人工看一眼 |
+
+`data/last_capture_status.json` 里的 `failures` 会逐刊给出 `stage` 与 `kind`；`kind` 为 `blocked` 表示站点明确拒绝自动化（401/403/412），重试无用，只能换 `--url` 或转人工。
 
 ## PDF 降级策略
 
@@ -415,7 +441,7 @@ PDF 只在导入阶段处理。
 - 《数字人文研究》历史期次支持较好，可从过刊页定位。
 - 《数字人文》依赖 CNKI 采编平台公开页面；历史期次若被验证码或登录限制阻挡，需要你提供可访问的目录页 URL。
 - 《图书馆论坛》已接入公开期刊系统，可按配置中的 `historyUrlTemplate` 与 `volumeYearBase` / `volumeBase` 推算历史期 URL。
-- 《图书馆杂志》已接入通用 Magtech 解析器，「数字人文」栏目可用 `capture-channel` 抓取全量分页；官网偶发 412/SSL 拦截，必要时用 `--url` 指定真实目录页。
+- 《图书馆杂志》已接入通用 Magtech 解析器，配置里也有「数字人文」栏目，但**官网的反爬前置检查会对普通 HTTP 请求稳定返回 412**（不是偶发），期次抓取与 `capture-channel` 目前都无法自动完成。按项目红线，我们**不绕过**该检查；只能由你用浏览器打开目录页后以 `--url` 指定，且仍可能失败。该刊的 `historyUrlTemplate` 含 `{volume}` 但缺 `volumeYearBase` / `volumeBase`，按年期自动定位过刊也不可用——报错信息会直接说明这一点。
 - 《中国数字人文》目录常跳转微信，作者和摘要可能无法稳定补全，按题名和链接降级。
 - 《数位典藏与数位人文》Airiti 页面若返回平台宣传内容会被质量校验拦截，优先用 TADH 官方公告页或人工整理清单。
 - 本工具**不会**破解验证码、绕过登录，或替代学校账号权限。
@@ -432,10 +458,11 @@ PDF 只在导入阶段处理。
 | 安全漏洞：凭据可能泄漏的路径、绕过导入确认闸门 | 邮件 `boringhxy@163.com`，见 [SECURITY.md](SECURITY.md)，**不要**开公开 issue |
 | 想改代码、加解析器 | [CONTRIBUTING.md](CONTRIBUTING.md)，先读硬性红线 |
 
-报 bug 时最有用的是两样东西，请一并贴上：
+报 bug 时最有用的是三样东西，请一并贴上：
 
-1. `dhgleaner doctor` 的完整输出——已脱敏，不含你的 API Key。
-2. `data/last_capture_status.json` 的内容——它说明本次抓取是成功、失败还是 `suspect`，以及旧的 `review.md` 是否仍然有效。
+1. `dhgleaner --version` 的输出——同一个版本的行为可能差别很大。
+2. `dhgleaner doctor` 的完整输出——已脱敏，不含你的 API Key。命令本身装不上时，改成粘贴安装报错。
+3. `data/last_capture_status.json` 的内容——它说明本次抓取是成功、失败还是 `suspect`，旧的 `review.md` 是否仍然有效，以及每本没抓到的刊具体卡在哪个阶段。
 
 **任何情况下都不要把 `config.local.json` 的内容或 Zotero API Key 贴进 issue。**
 

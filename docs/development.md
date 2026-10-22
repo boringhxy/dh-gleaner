@@ -89,12 +89,18 @@ ruff check .
 - 仓库中不含 `config.local.json` 的真实内容。
 - 新增 parser 或配置有对应测试。
 - 构建出的 wheel 不含内部文档，且带有 `dhgleaner/defaults/` 与 `dhgleaner/mcp/`。
+- `dhgleaner --version` 打出的版本号与 `CHANGELOG.md` 里新建的版本节一致。
 
 ## 打包
 
 ```bash
-python -m build                      # 生成 dist/ 下的 sdist 与 wheel
-pip install dist/*.whl               # 在干净环境里验证
+python -m build
+pip install dist/*.whl
 ```
+
+- `python -m build`：生成 `dist/` 下的 sdist 与 wheel。
+- `pip install dist/*.whl`：在干净环境里验证。
+
+版本号**只写在 `dhgleaner/__init__.py` 的 `__version__`**：`pyproject.toml` 用 hatchling 的 dynamic version 从那里读，`dhgleaner --version`、MCP 的 `serverInfo` 与打包元数据用的是同一个值。改 `pyproject.toml` 里的版本不会生效。
 
 wheel 需要包含 `defaults/`（配置模板）与 `mcp/`（服务端）。CI 的 `build` 任务会检查这两项，并确认内部文档没有被打进包里。

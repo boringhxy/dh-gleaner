@@ -14,6 +14,7 @@ from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 
 from ..models import Article, IssueInfo
+from ..textutil import isBlacklistedTitle, isNavigationTitle
 from .base import BaseParser
 
 log = logging.getLogger(__name__)
@@ -96,14 +97,7 @@ class GenericHtmlParser(BaseParser):
         title = re.sub(r"\s+", " ", title or "").strip()
         if len(title) < int(self.options.get("minTitleLength", 8)) or len(title) > int(self.options.get("maxTitleLength", 120)):
             return False
-        badDefaults = {
-            "首页", "投稿指南", "联系我们", "期刊介绍", "过刊浏览", "在线投稿", "下载中心", "更多", "English",
-            "Read More", "More", "数据库", "精选期刊", "最新消息", "关于我们", "广告合作",
-        }
-        blacklist = set(self.options.get("titleBlacklist", [])) | badDefaults
-        if title in blacklist:
-            return False
-        if any(bad.lower() in title.lower() for bad in blacklist if len(bad) >= 4):
+        if isNavigationTitle(title) or isBlacklistedTitle(title, self.options.get("titleBlacklist", [])):
             return False
         if not self._allowedDomain(href):
             return False

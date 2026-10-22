@@ -95,21 +95,31 @@ Every `x` below is a placeholder. Replace it with an actual number at run time.
 ### Initialization
 
 ```bash
-dhgleaner init                   # interactive wizard: enter Zotero credentials → test connection → optionally create collections → self-check
-dhgleaner init-collections       # read-only preview: show which collection levels are missing per journal (writes nothing)
-dhgleaner init-collections --yes # actually create the missing collections after you confirm
-dhgleaner init-collections --journal "图书馆论坛" --yes   # only fix up one journal
+dhgleaner init
+dhgleaner init-collections
+dhgleaner init-collections --yes
+dhgleaner init-collections --journal "图书馆论坛" --yes
 ```
+
+- `init`: interactive wizard — enter Zotero credentials, test the connection, optionally create collections, then self-check.
+- `init-collections`: read-only preview showing which collection levels are missing per journal; **writes nothing**.
+- `init-collections --yes`: actually creates the missing collections once you confirm; add `--journal` to fix up one journal only.
 
 `init-collections` previews by default and only writes to Zotero with `--yes`; the import flow itself still never creates collections on its own.
 
 ### Diagnostics
 
 ```bash
-dhgleaner doctor                 # dependencies, data directory, configuration file
-dhgleaner doctor --zotero        # additionally connect to Zotero and check each journal collection
-dhgleaner doctor --network       # additionally run a network connectivity check
+dhgleaner --version
+dhgleaner doctor
+dhgleaner doctor --zotero
+dhgleaner doctor --network
 ```
+
+- `--version`: prints the version; include it along with the `doctor` output when reporting a bug.
+- `doctor`: checks dependencies, data directory and configuration file.
+- `doctor --zotero`: additionally connects to Zotero and checks each journal collection.
+- `doctor --network`: additionally runs a network connectivity check.
 
 ### Capture
 
@@ -261,7 +271,7 @@ If you want the tool to create missing collections for you, set `zotero.autoCrea
 | 数字人文 | `https://szrw.cbpt.cnki.net/` | `cnki_cbpt` | Current public pages work; older issues may need a user-supplied URL | May be empty due to CNKI limits | Not downloaded by default; the link is recorded for manual download |
 | 中国数字人文 | No stable public contents page is published | `generic_html` | Requires `--url` with an accessible contents page | Best effort, usually empty | Metadata-only fallback |
 | 数位典藏与数位人文 | `http://www.tadh.org.tw/` | `generic_html` | Requires `--url` with an accessible contents page | Best effort, usually empty | Metadata-only fallback |
-| 图书馆杂志 | `https://www.libraryjournal.com.cn/` | `magtech` | Issue pages, plus full paginated capture of the 数字人文 section | Usually available | Downloaded and attached when importing selected articles |
+| 图书馆杂志 | `https://www.libraryjournal.com.cn/` | `magtech` | Issue pages, plus full paginated capture of the 数字人文 section | **Not capturable automatically right now**: the site's anti-bot pre-check returns 412 to every plain HTTP request, so you must pass `--url` with a contents page you can open in a browser | Downloaded and attached when importing selected articles |
 | 图书馆论坛 | `http://tsglt.zslib.com.cn/` | `magtech` | Volume numbers can be derived from configuration to reach archived issues | Usually available | Downloaded and attached when importing selected articles |
 
 The following journals are marked `harvestOnly: true`: they are collected through `harvest` on a yearly basis only, are skipped by `capture --all-journals`, and do not download PDFs by default.
@@ -391,14 +401,30 @@ Resolved in this order; the first match wins:
 
 ## Capture quality checks
 
-Results are inspected before saving. The following are marked `suspect` and **do not overwrite** the existing `review.md` / `pending.json`:
+Each journal is inspected **separately** before saving — if 12 of 13 journals fail and one succeeds, the aggregate still "has articles", but that batch must not replace the previous complete shortlist. The following are marked `suspect` and **do not overwrite** the existing `review.md` / `pending.json`:
 
 - The issue resolves to "year 0, issue 0" during a single-issue capture.
 - Navigation, advertising or platform-recommendation text dominates the titles.
+- Titles or abstracts contain the U+FFFD replacement character, meaning the page encoding was misdetected.
 - The title duplication ratio is abnormal.
 - `generic_html` requires certain page text but the page lacks the target journal, IssueID or section keyword.
+- Some journals failed while others returned results in a batch capture.
+- Channel pagination hit the `maxChannelPages` cap, so the list may only cover the first few pages.
 
 When this happens, read the reason in the terminal and in `data/last_capture_status.json`, confirm the real contents page and retry with `--url`, or curate the list manually as a `manual_curated` capture.
+
+### Exit codes
+
+`capture` / `capture-channel` / `harvest` report status through exit codes, so cron jobs, CI and scripts can act on them:
+
+| Code | Meaning |
+|------|---------|
+| 0 | Every journal captured cleanly and passed the quality gate |
+| 1 | Nothing usable was captured (bad arguments also exit 1) |
+| 2 | The command line itself was invalid (argparse) |
+| 3 | Something was captured but the quality is doubtful, or only some journals succeeded — the old shortlist was not overwritten and deserves a look |
+
+The `failures` array in `data/last_capture_status.json` gives each journal's `stage` and `kind`; `kind: "blocked"` means the site explicitly refuses automation (401/403/412), so retrying will not help — use `--url` or curate manually instead.
 
 ## PDF fallback policy
 
@@ -414,7 +440,7 @@ PDFs are handled only during import.
 - 数字人文研究 has good archived-issue support via its back-issue page.
 - 数字人文 depends on public CNKI pages; if older issues are behind CAPTCHAs or logins, you must supply an accessible contents-page URL.
 - 图书馆论坛 is wired to its public journal system and can derive historical URLs from `historyUrlTemplate` plus `volumeYearBase` / `volumeBase`.
-- 图书馆杂志 uses the generic Magtech parser; the 数字人文 section can be captured in full via `capture-channel`. The site occasionally returns 412 or SSL errors — use `--url` with a real contents page when that happens.
+- 图书馆杂志 uses the generic Magtech parser and has a 数字人文 section configured, but **the site's anti-bot pre-check returns 412 to every plain HTTP request** (not occasionally), so neither issue capture nor `capture-channel` currently works for it. Per the project's red lines we do **not** bypass that check; open the contents page in a browser yourself and pass it via `--url`, which may still fail. Its `historyUrlTemplate` contains `{volume}` while `volumeYearBase` / `volumeBase` are not configured, so locating archived issues by year is unavailable too — the error message now says so explicitly.
 - 中国数字人文 contents pages often redirect to WeChat, so authors and abstracts may not be complete; the tool degrades to titles and links.
 - 数位典藏与数位人文 pages that return platform promotional content are rejected by the quality checks; prefer the official TADH announcement page or a manually curated list.
 - This tool **never** solves CAPTCHAs, bypasses logins, or substitutes for your institution's access rights.
@@ -431,10 +457,11 @@ Three issue templates cover three kinds of request. Picking the right one saves 
 | Security flaw: a path that could leak credentials, or a way around the import confirmation gate | Email `boringhxy@163.com`, see [SECURITY.md](SECURITY.md) — **do not** open a public issue |
 | Contribute code or a new parser | [CONTRIBUTING.md](CONTRIBUTING.md), read the hard limits first |
 
-When reporting a bug, two things help most — please attach both:
+When reporting a bug, three things help most — please attach all of them:
 
-1. The full output of `dhgleaner doctor`. It is already redacted and contains no API key.
-2. The contents of `data/last_capture_status.json`. It records whether the capture succeeded, failed, or was marked `suspect`, and whether the old `review.md` is still valid.
+1. The output of `dhgleaner --version` — behaviour can differ a lot between versions.
+2. The full output of `dhgleaner doctor`. It is already redacted and contains no API key. If the command will not install or run at all, paste the installation error instead.
+3. The contents of `data/last_capture_status.json`. It records whether the capture succeeded, failed, or was marked `suspect`, whether the old `review.md` is still valid, and which stage each journal that returned nothing failed at.
 
 **Never paste the contents of `config.local.json` or a Zotero API key into an issue.**
 

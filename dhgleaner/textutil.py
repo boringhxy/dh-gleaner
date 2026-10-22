@@ -1,4 +1,4 @@
-"""解析器与 harvest 共用的文本清洗 / 前置条目识别工具。
+"""解析器与 harvest 共用的文本清洗 / 前置条目与导航标题识别工具。
 
 独立成模块是为了避免循环依赖：parsers 与 harvest 都要用，而它不依赖包内任何模块。
 """
@@ -29,3 +29,51 @@ FRONT_MATTER_RE = re.compile(
 def isFrontMatterTitle(title: str) -> bool:
     """标题是否属于前置/后置非论文条目（不计入全目录，也不抓详情）。"""
     return bool(FRONT_MATTER_RE.match((title or "").strip()))
+
+
+#: 站点导航 / 广告 / 平台外壳的标题词。命中说明抓到的不是文章清单。
+#:
+#: 分两组是因为匹配方式必须不同：中文词可以直接当子串用（中文没有词边界，
+#: 「过刊浏览」出现在标题里基本就是导航）；拉丁词只能整条相等，否则一篇
+#: 题为《Journal of Digital Humanities 的引文分析》的论文会被误判成导航。
+NAVIGATION_SUBSTRINGS = frozenset(
+    {
+        "首页", "更多", "数据库", "投稿指南", "联系我们", "期刊介绍",
+        "过刊浏览", "在线投稿", "下载中心", "精选期刊", "最新消息",
+        "关于我们", "广告合作",
+    }
+)
+NAVIGATION_EXACT = frozenset({"Home", "More", "Read More", "English", "About", "Journal"})
+_NAVIGATION_EXACT_LOWER = frozenset(word.lower() for word in NAVIGATION_EXACT)
+
+
+def _normalizeTitle(title: str) -> str:
+    return re.sub(r"\s+", " ", title or "").strip()
+
+
+def isNavigationTitle(title: str) -> bool:
+    """标题是否是站点导航/广告外壳（capture 的质量闸门与 generic_html 共用）。"""
+    normalized = _normalizeTitle(title)
+    if not normalized:
+        return False
+    if normalized.lower() in _NAVIGATION_EXACT_LOWER:
+        return True
+    return any(word in normalized for word in NAVIGATION_SUBSTRINGS)
+
+
+def isBlacklistedTitle(title: str, blacklist) -> bool:
+    """期刊配置里自定义的标题黑名单，子串命中即算。"""
+    normalized = _normalizeTitle(title)
+    if not normalized or not blacklist:
+        return False
+    return any(word and word in normalized for word in blacklist)
+
+
+#: 解码失败时替换字符 U+FFFD（&#65533;）。站点声明错编码、或 requests 的
+#: apparent_encoding 猜错时就会成片出现，是「这批文本根本不可读」的硬信号。
+REPLACEMENT_CHAR = "\ufffd"
+
+
+def hasDecodingGarbage(*texts: str) -> bool:
+    """任一文本含 U+FFFD 即认为解码出错 —— 这类清单不该当成可信结果。"""
+    return any(REPLACEMENT_CHAR in (text or "") for text in texts)

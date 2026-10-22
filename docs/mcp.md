@@ -69,6 +69,19 @@ pipx install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
 
 `suggestedAction` 是与 `failureKind` 配套的自然语言建议，可直接转述给使用者。
 
+抓取类工具（`capture_issue` / `capture_channel` / `harvest_year`）的结果里带两个逐刊字段，用于表达「部分刊没成功」；整批为 `suspect` / `failed` 时它们是 `ok: false` 载荷的一部分，`success` 时也在：
+
+```jsonc
+{
+  "ok": true,
+  "status": "suspect",
+  "failures": [{ "journal": "图书馆杂志", "stage": "resolve", "kind": "blocked", "detail": "…" }],
+  "blockedJournals": ["图书馆杂志"]
+}
+```
+
+`kind` 为 `blocked` 表示站点明确拒绝自动化（重试无用），为 `failed` 表示临时故障。`blockedJournals` 是 `failures` 里 `kind == "blocked"` 的刊名快捷方式，便于客户端直接决定「别再自动重试这几本」。
+
 ## 只读工具（8 个）
 
 这些工具不写磁盘、不写 Zotero、不发网络请求（`run_doctor` 需显式开启检查）。

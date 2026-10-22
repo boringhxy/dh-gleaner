@@ -9,13 +9,15 @@ from __future__ import annotations
 
 import logging
 import re
+import time
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Tuple
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 
-from .http_util import fetchHtml
+from .http_util import FetchBlocked, fetchHtml
 from .models import Article, IssueInfo
 from .parsers.cnki_cbpt import CnkiCbptParser
 from .parsers.founder import FounderParser
@@ -24,9 +26,52 @@ from .parsers.journalx import JournalXParser
 from .parsers.journy3 import Journy3Parser
 from .parsers.magtech import MagtechParser
 from .state import StateManager
+from .textutil import hasDecodingGarbage, isNavigationTitle
 
 log = logging.getLogger(__name__)
 _TZ = timezone(timedelta(hours=8))
+
+#: 站点明确拒绝自动化访问 —— 重试无意义，得换 URL 或转人工
+KIND_BLOCKED = "blocked"
+#: 临时性故障 —— 稍后重试可能就好了
+KIND_FAILED = "failed"
+
+STAGE_LABELS = {
+    "resolve": "期次定位失败",
+    "fetch": "抓取失败",
+    "parse": "解析失败",
+    "mismatch": "期次不符",
+    "unsupported": "不支持该采集方式",
+    "config": "配置缺失",
+}
+
+
+@dataclass
+class CaptureFailure:
+    """一本刊没抓到东西时，记下卡在哪一步、属于哪一类。
+
+    过去所有异常都被吞成 ``(None, [])`` 只写日志，于是「站点拒绝访问」和「网络抖动」
+    在用户眼里一模一样，而批量抓取还会把这种缺失当成一次干净的成功。
+    """
+
+    journal: str
+    stage: str
+    kind: str
+    detail: str
+
+    @property
+    def label(self) -> str:
+        return STAGE_LABELS.get(self.stage, self.stage)
+
+    def describe(self) -> str:
+        return f"《{self.journal}》{self.label}：{self.detail}"
+
+    def toDict(self) -> dict:
+        return {"journal": self.journal, "stage": self.stage, "kind": self.kind, "detail": self.detail}
+
+
+def classifyFetchError(exc: Exception) -> str:
+    return KIND_BLOCKED if isinstance(exc, FetchBlocked) else KIND_FAILED
 
 
 def getParser(parserName: str, journalName: str, httpCfg: dict, journalCfg: Optional[dict] = None):
@@ -197,10 +242,16 @@ def _resolveMagtechIssueUrl(journalCfg: dict, httpCfg: dict, target: dict) -> st
     volume = _targetVolume(journalCfg, target)
     volumeHint = f" 第{volume}卷" if volume is not None else ""
     manualHint = ""
-    if journalCfg.get("historyUrlTemplate"):
+    template = journalCfg.get("historyUrlTemplate", "")
+    if template:
         possible = _formatHistoryUrl(journalCfg, {**target, "volume": volume} if volume is not None else target)
         if possible:
             manualHint = f"。可尝试 --url {possible}"
+        elif "{volume}" in template:
+            manualHint = (
+                "。该刊的 historyUrlTemplate 需要卷号，但配置里缺 volumeYearBase/volumeBase，"
+                "无法推算卷号；请在官网找到该期目录页后用 --url 指定"
+            )
     raise RuntimeError(
         f"未在《{journalCfg['name']}》Magtech 过刊页找到 {target['year']}年{volumeHint} 第{target['issue']}期{archiveError}{manualHint}"
     )
@@ -280,22 +331,61 @@ def resolveIssueUrl(journalCfg: dict, httpCfg: dict, target: Optional[dict] = No
 
 
 
-BAD_TITLE_RE = re.compile(r"Read More|首页|数据库|最新消息|精选期刊|期刊介绍|投稿指南|联系我们|下载中心|更多|About|Home|Journal", re.I)
-
-
 def assessCaptureQuality(issue: Optional[IssueInfo], articles: List[Article], captureType: str = "issue") -> tuple[str, str]:
     """判断抓取结果是否像有效文章清单；suspect 不应覆盖旧清单。"""
     if not articles:
         return "failed", "未捕获到文章"
     if captureType == "issue" and issue and issue.year == 0 and issue.issue == 0:
         return "suspect", "期次解析为 0年第0期，疑似抓到非目标页面"
-    badCount = sum(1 for article in articles if BAD_TITLE_RE.search(article.title or ""))
+    badCount = sum(1 for article in articles if isNavigationTitle(article.title))
     badRatio = badCount / max(len(articles), 1)
     if badRatio >= 0.25:
         return "suspect", f"疑似导航/广告标题占比过高: {badCount}/{len(articles)}"
+    garbled = sum(1 for article in articles if hasDecodingGarbage(article.title, article.abstract))
+    if garbled:
+        return "suspect", f"标题/摘要含解码替换符 U+FFFD，疑似编码判断出错: {garbled}/{len(articles)}"
     uniqueTitles = {re.sub(r"\s+", "", article.title or "") for article in articles}
     if len(articles) >= 5 and len(uniqueTitles) / len(articles) < 0.6:
         return "suspect", "重复标题比例过高，疑似误抓页面"
+    return "success", ""
+
+
+def assessBatchQuality(
+    results: List[Tuple[str, Optional[IssueInfo], List[Article]]],
+    failures: List[CaptureFailure],
+    captureType: str = "issue",
+) -> tuple[str, str]:
+    """逐刊判定整批抓取的质量。
+
+    不能用聚合后的文章列表判：13 本里 12 本失败、1 本抓到 6 篇，聚合看仍是
+    「有文章、标题干净」，于是判 success 并覆盖掉上一次完整的待筛清单。
+    这里改成每本刊单独过一遍 ``assessCaptureQuality``，任一刊异常整批就不算成功。
+
+    「合法的空」不算异常：dedupe 命中已处理期次、harvest 的 dhOnly 筛完无命中，
+    这两种情况不会记入 ``failures``，因此不会拖累整批判定。
+    """
+    if not results:
+        return "failed", "没有任何期刊进入本次抓取"
+
+    if failures:
+        detail = "；".join(f.describe() for f in failures)
+        if all(not arts for _, _, arts in results):
+            return "failed", detail
+        return "suspect", f"{len(failures)}/{len(results)} 本刊抓取异常，未覆盖旧清单：{detail}"
+
+    reasons: List[str] = []
+    for name, issue, articles in results:
+        # 空列表且无 failure 记录 = 合法的空（dedupe 已处理 / dhOnly 无命中），不算异常
+        if not articles:
+            continue
+        quality, reason = assessCaptureQuality(issue, articles, captureType)
+        if quality != "success":
+            reasons.append(f"《{name}》{reason}")
+
+    if reasons:
+        return "suspect", "；".join(reasons)
+    if all(not articles for _, _, articles in results):
+        return "failed", "各刊均无新文章（可能已处理过，或筛完无命中）"
     return "success", ""
 
 
@@ -314,19 +404,21 @@ def captureChannel(
     channelName: str,
     explicitUrl: str = "",
     dedupe: bool = False,
-) -> Tuple[Optional[IssueInfo], List[Article]]:
+) -> Tuple[Optional[IssueInfo], List[Article], Optional[CaptureFailure]]:
     """抓取栏目型清单；栏目可跨多个期次，每篇文章保留自己的年卷期。"""
     name = journalCfg["name"]
     parserName = journalCfg["parser"]
     if parserName != "magtech":
-        log.error("《%s》暂不支持 capture-channel；当前解析器为 %s", name, parserName)
-        return None, []
+        detail = f"当前解析器为 {parserName}，暂不支持 capture-channel"
+        log.error("《%s》%s", name, detail)
+        return None, [], CaptureFailure(name, "unsupported", KIND_FAILED, detail)
 
     source = _channelSource(journalCfg, channelName)
     url = explicitUrl or source.get("url", "")
     if not url:
-        log.error("《%s》未配置栏目《%s》的 URL，请使用 --url 手动指定", name, channelName)
-        return None, []
+        detail = f"未配置栏目《{channelName}》的 URL，请使用 --url 手动指定"
+        log.error("《%s》%s", name, detail)
+        return None, [], CaptureFailure(name, "config", KIND_FAILED, detail)
 
     userAgent = httpCfg.get("userAgent", "")
     parser = getParser(parserName, name, httpCfg, journalCfg)
@@ -338,12 +430,17 @@ def captureChannel(
         pages = parser.discoverChannelPageUrls(firstHtml, url)
     except Exception as e:
         log.error("《%s》栏目《%s》首页抓取失败: %s", name, channelName, e)
-        return None, []
+        return None, [], CaptureFailure(name, "fetch", classifyFetchError(e), f"栏目《{channelName}》首页抓取失败：{e}")
 
     allArticles: List[Article] = []
     issue = IssueInfo(year=0, volume=None, issue=0)
     seen = set()
-    for pageUrl in pages:
+    failedPages: List[str] = []
+    pageDelay = float(httpCfg.get("harvestDelay", 0.6))
+    for index, pageUrl in enumerate(pages):
+        # 栏目分页全是同一台主机，逐页之间要限速；首页已经抓过所以从第二页起才等
+        if index and pageDelay > 0:
+            time.sleep(pageDelay)
         try:
             html = pageHtml.get(pageUrl) or fetchHtml(pageUrl, userAgent, timeout=httpCfg.get("timeout", 30), maxRetries=httpCfg.get("maxRetries", 3), retryInterval=httpCfg.get("retryInterval", 30))
             pageIssue, articles = parser.parseChannelPage(html, channelName=source.get("channel", channelName))
@@ -357,14 +454,32 @@ def captureChannel(
                     continue
                 allArticles.append(article)
         except Exception as e:
+            # 单页失败会让整栏清单静默缺一截，因此必须记下来而不是只写日志
             log.warning("《%s》栏目《%s》分页抓取失败: %s — %s", name, channelName, pageUrl, e)
+            failedPages.append(pageUrl)
 
     state.updateLastCheck(name)
     nowIso = datetime.now(_TZ).isoformat(timespec="seconds")
     for article in allArticles:
         article.capturedAt = nowIso
     log.info("《%s》栏目《%s》捕获完成: %d 页, %d 篇", name, channelName, len(pages), len(allArticles))
-    return issue, allArticles
+
+    problems: List[str] = []
+    if failedPages:
+        problems.append(
+            f"{len(failedPages)}/{len(pages)} 页抓取失败，清单可能不完整：{', '.join(failedPages[:3])}"
+        )
+    pageCap = int(getattr(parser, "maxChannelPages", 0) or 0)
+    if pageCap and len(pages) >= pageCap:
+        problems.append(
+            f"分页达到上限 {pageCap} 页，只抓到这么多；如需全量请调大该刊配置的 maxChannelPages"
+        )
+        log.warning("《%s》栏目《%s》%s", name, channelName, problems[-1])
+
+    failure = None
+    if problems:
+        failure = CaptureFailure(name, "fetch", KIND_FAILED, f"栏目《{channelName}》" + "；".join(problems))
+    return issue, allArticles, failure
 
 def captureJournal(
     journalCfg: dict,
@@ -373,8 +488,12 @@ def captureJournal(
     target: Optional[dict] = None,
     explicitUrl: str = "",
     dedupe: bool = True,
-) -> Tuple[Optional[IssueInfo], List[Article]]:
-    """捕获单个期刊的目录文章。"""
+) -> Tuple[Optional[IssueInfo], List[Article], Optional[CaptureFailure]]:
+    """捕获单个期刊的目录文章。
+
+    第三个返回值是失败记录；``None`` 表示没有失败。文章列表为空但失败记录也为
+    ``None``，说明这是合法的空（dedupe 命中已处理期次），不该算异常。
+    """
     name = journalCfg["name"]
     parserName = journalCfg["parser"]
     userAgent = httpCfg.get("userAgent", "")
@@ -383,7 +502,7 @@ def captureJournal(
         url = resolveIssueUrl(journalCfg, httpCfg, target=target, explicitUrl=explicitUrl)
     except Exception as e:
         log.error("《%s》目标期次解析失败: %s", name, e)
-        return None, []
+        return None, [], CaptureFailure(name, "resolve", classifyFetchError(e), str(e))
 
     log.info("开始捕获《%s》: %s", name, url)
 
@@ -397,24 +516,25 @@ def captureJournal(
         )
     except Exception as e:
         log.error("《%s》抓取失败: %s", name, e)
-        return None, []
+        return None, [], CaptureFailure(name, "fetch", classifyFetchError(e), str(e))
 
     parser = getParser(parserName, name, httpCfg, journalCfg)
     try:
         issue, articles = parser.parseCurrentIssue(html)
     except Exception as e:
         log.error("《%s》解析失败: %s", name, e)
-        return None, []
+        return None, [], CaptureFailure(name, "parse", KIND_FAILED, str(e))
 
     if target and not _matchesIssue(issue, target):
-        log.error("《%s》抓到的期次为 %s，不是用户指定的 %s年第%s期", name, issue.label(), target["year"], target["issue"])
-        return issue, []
+        detail = f"抓到的是 {issue.label()}，不是指定的 {target['year']}年第{target['issue']}期"
+        log.error("《%s》%s", name, detail)
+        return issue, [], CaptureFailure(name, "mismatch", KIND_FAILED, detail)
 
     state.updateLastCheck(name)
 
     if dedupe and issue.year and state.isIssueProcessed(name, issue):
         log.info("《%s》%s 已处理过，无新文章", name, issue.label())
-        return issue, []
+        return issue, [], None
 
     if dedupe:
         resultArticles = [
@@ -435,7 +555,7 @@ def captureJournal(
         article.capturedAt = nowIso
 
     log.info("《%s》捕获完成: %s, 文章 %d 篇", name, issue.label(), len(resultArticles))
-    return issue, resultArticles
+    return issue, resultArticles, None
 
 
 def captureAll(
@@ -447,9 +567,10 @@ def captureAll(
     journalName: str = "",
     explicitUrl: str = "",
     dedupe: Optional[bool] = None,
-) -> List[Tuple[str, Optional[IssueInfo], List[Article]]]:
-    """捕获所有或指定期刊。"""
+) -> Tuple[List[Tuple[str, Optional[IssueInfo], List[Article]]], List[CaptureFailure]]:
+    """捕获所有或指定期刊，返回 ``(结果三元组列表, 失败记录列表)``。"""
     results = []
+    failures: List[CaptureFailure] = []
     manualTarget = bool(target or explicitUrl)
     useDedupe = (not manualTarget) if dedupe is None else dedupe
     for journalCfg in journalsCfg:
@@ -460,10 +581,12 @@ def captureAll(
             log.info("《%s》是散篇 harvest 期刊，capture 全量轮转跳过；请用 harvest 命令按年采集", name)
             continue
         if explicitUrl and not journalName:
-            log.error("使用 --url 时必须同时指定 --journal")
+            detail = "使用 --url 时必须同时指定 --journal"
+            log.error(detail)
             results.append((name, None, []))
+            failures.append(CaptureFailure(name, "config", KIND_FAILED, detail))
             continue
-        issue, articles = captureJournal(
+        issue, articles, failure = captureJournal(
             journalCfg,
             httpCfg,
             state,
@@ -472,4 +595,6 @@ def captureAll(
             dedupe=useDedupe,
         )
         results.append((name, issue, articles))
-    return results
+        if failure:
+            failures.append(failure)
+    return results, failures

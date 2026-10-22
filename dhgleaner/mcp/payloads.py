@@ -53,6 +53,8 @@ def capturePayload(outcome: CaptureOutcome, *, articleLimit: int = 200) -> dict:
         "reviewPath": str(getPaths().review),
         "pendingPath": str(getPaths().pending),
         "backups": [str(path) for path in outcome.backups],
+        "failures": [f.toDict() for f in outcome.failures],
+        "blockedJournals": outcome.blockedJournals,
         "articles": articleRows(outcome.articles, articleLimit),
         "articlesTruncated": outcome.articleCount > articleLimit,
     }

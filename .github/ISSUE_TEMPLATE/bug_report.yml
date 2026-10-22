@@ -25,6 +25,14 @@ body:
         实际：提示 suspect，data/review.md 没有更新。
     validations:
       required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: 运行 `dhgleaner --version` 后原样粘贴；装不上、命令跑不起来就填安装时用的引用（如 git 源或 commit）
+      placeholder: dh-gleaner 0.1.0
+    validations:
+      required: true
   - type: textarea
     id: command
     attributes:
@@ -78,9 +86,8 @@ body:
     id: doctor
     attributes:
       label: "`dhgleaner doctor` 输出"
+      description: 请原样粘贴。如果命令本身装不上或跑不起来，改成粘贴安装报错，这里可以留空
       render: text
-    validations:
-      required: true
   - type: textarea
     id: capture-status
     attributes:
