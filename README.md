@@ -128,22 +128,14 @@ dhgleaner doctor --network
 |------|----------|------|
 | 期次抓取 | 某刊某年某期 | `dhgleaner capture --journal "期刊名" --year x --issue x` |
 | 卷期抓取 | 需要精确到卷号时 | `dhgleaner capture --journal "期刊名" --year x --volume x --issue x` |
+| 全刊轮转 | 一次抓完配置里所有非 `harvestOnly` 的刊 | `dhgleaner capture --all-journals --year x --issue x` |
 | 栏目抓取 | 某刊某栏目跨期全量 | `dhgleaner capture-channel --journal "图书馆杂志" --channel "数字人文"` |
 | 散篇 harvest | 没有常设数字人文栏目、DH 内容散落在各栏目的图情/信息刊，按年枚举全目录再关键词筛 | `dhgleaner harvest --year 2026` |
 | 手动目录页 | 官方公告页、微信目录、Airiti 等不稳定页面 | `dhgleaner capture --journal "期刊名" --url "目录页URL"` |
 
-```bash
-dhgleaner capture --journal "数字人文研究" --year x --issue x
-dhgleaner capture --journal "数字人文研究" --year x --volume x --issue x
-dhgleaner capture --journal "图书馆论坛" --year x --issue x
-dhgleaner capture --journal "图书馆杂志" --year x --issue x
-dhgleaner capture-channel --journal "图书馆杂志" --channel "数字人文"
-dhgleaner capture --journal "中国数字人文" --url "真实目录页URL"
-dhgleaner capture --journal "数位典藏与数位人文" --url "真实目录页URL"
-dhgleaner capture --all-journals --year x --issue x
-```
-
 不指定期刊的 `capture --year x --issue x` 会被拒绝——要抓全部必须显式加 `--all-journals`。
+
+`capture-channel` 只对 Magtech 皮肤的期刊开放，其他皮肤会直接报「当前解析器为 xxx，暂不支持 capture-channel」；栏目页地址取自该刊配置的 `channelSources`，没配就必须用 `--url` 指定。默认配置里写了 `channelSources` 的只有《图书馆杂志》，它的**栏目页可以正常抓取**（2026-10-22 复测：单页 40 篇、跨页合并 67 篇，年卷期与页码都在），上表那条命令是能直接跑的——被 412 挡住的是它的**期次入口** `current.shtml`，见「边界」。
 
 ### 散篇 harvest（按年枚举 + 关键词筛）
 
@@ -274,7 +266,7 @@ Zotero 中需要提前存在这些 Collection 路径：
 | 数字人文 | `https://szrw.cbpt.cnki.net/` | `cnki_cbpt` | 当前公开页可抓取；历史页可能需要用户提供 URL | 受 CNKI 页面限制，可能为空 | 默认不自动下载，导入时记录链接供手动下载 |
 | 中国数字人文 | 名录未提供稳定公开目录页 | `generic_html` | 需要用户用 `--url` 指定可访问目录页 | 尽量抽取，通常为空 | 元数据降级为主 |
 | 数位典藏与数位人文 | `http://www.tadh.org.tw/` | `generic_html` | 需要用户用 `--url` 指定可访问目录页 | 尽量抽取，通常为空 | 元数据降级为主 |
-| 图书馆杂志 | `https://www.libraryjournal.com.cn/` | `magtech` | 支持期次页；支持「数字人文」栏目全量分页抓取 | **当前不可自动抓取**：官网反爬前置检查稳定返回 412，需用 `--url` 指定可直接打开的目录页 | 导入选中文章时尝试下载并挂载 |
+| 图书馆杂志 | `https://www.libraryjournal.com.cn/` | `magtech` | 期次入口 `current.shtml` 被 412 拦、自动定位不可用；「数字人文」栏目分页可正常抓取 | **期次抓取当前不可自动完成**：反爬前置检查对 `current.shtml` 稳定返回 412，需用 `--url` 指定可直接打开的目录页；栏目抓取不受影响 | 导入选中文章时尝试下载并挂载 |
 | 图书馆论坛 | `http://tsglt.zslib.com.cn/` | `magtech` | 可按配置推算卷号并使用历史 URL 模板定位公开过刊 | 通常可抓取 | 导入选中文章时尝试下载并挂载 |
 
 以下散篇期刊标了 `harvestOnly: true`，只走 `harvest` 按年采集（不进 `capture --all-journals`，默认不下载 PDF）：
@@ -443,7 +435,7 @@ PDF 只在导入阶段处理。
 - 《数字人文研究》历史期次支持较好，可从过刊页定位。
 - 《数字人文》依赖 CNKI 采编平台公开页面；历史期次若被验证码或登录限制阻挡，需要你提供可访问的目录页 URL。
 - 《图书馆论坛》已接入公开期刊系统，可按配置中的 `historyUrlTemplate` 与 `volumeYearBase` / `volumeBase` 推算历史期 URL。
-- 《图书馆杂志》已接入通用 Magtech 解析器，配置里也有「数字人文」栏目，但**官网的反爬前置检查会对普通 HTTP 请求稳定返回 412**（不是偶发），期次抓取与 `capture-channel` 目前都无法自动完成。按项目红线，我们**不绕过**该检查；只能由你用浏览器打开目录页后以 `--url` 指定，且仍可能失败。该刊的 `historyUrlTemplate` 含 `{volume}` 但缺 `volumeYearBase` / `volumeBase`，按年期自动定位过刊也不可用——报错信息会直接说明这一点。
+- 《图书馆杂志》已接入通用 Magtech 解析器。**412 只打在期次入口 `current.shtml` 上**（不是偶发，2026-10-22 复测仍然如此），所以 `capture --journal 图书馆杂志 --year x --issue x` 走不通；同一站点的栏目页 `showChannelArticle.do` 与过刊索引页 `showOldVolumn.do` 用普通请求就能读到，`capture-channel --journal 图书馆杂志 --channel 数字人文` 是可用的。按项目红线，我们**不绕过**该检查；要抓某一期只能由你用浏览器打开目录页后以 `--url` 指定，且仍可能失败。该刊的 `historyUrlTemplate` 含 `{volume}` 但缺 `volumeYearBase` / `volumeBase`，按年期自动定位过刊也不可用——报错信息会直接说明这一点。
 - 《中国数字人文》目录常跳转微信，作者和摘要可能无法稳定补全，按题名和链接降级。
 - 《数位典藏与数位人文》Airiti 页面若返回平台宣传内容会被质量校验拦截，优先用 TADH 官方公告页或人工整理清单。
 - 本工具**不会**破解验证码、绕过登录，或替代学校账号权限。

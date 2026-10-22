@@ -127,22 +127,14 @@ dhgleaner doctor --network
 |------|-------------|---------|
 | Issue | One issue of one journal | `dhgleaner capture --journal "期刊名" --year x --issue x` |
 | Volume + issue | When the volume number matters | `dhgleaner capture --journal "期刊名" --year x --volume x --issue x` |
+| All journals | One pass over every non-`harvestOnly` journal in the config | `dhgleaner capture --all-journals --year x --issue x` |
 | Section | A cross-issue section, full history | `dhgleaner capture-channel --journal "图书馆杂志" --channel "数字人文"` |
 | Yearly harvest | LIS/information journals with no standing DH section, where DH articles are scattered and the current-issue page is unstable — enumerate a whole year, then filter by keyword | `dhgleaner harvest --year 2026` |
 | Manual contents page | Announcement pages, WeChat listings, unstable Airiti pages | `dhgleaner capture --journal "期刊名" --url "contents-page-URL"` |
 
-```bash
-dhgleaner capture --journal "数字人文研究" --year x --issue x
-dhgleaner capture --journal "数字人文研究" --year x --volume x --issue x
-dhgleaner capture --journal "图书馆论坛" --year x --issue x
-dhgleaner capture --journal "图书馆杂志" --year x --issue x
-dhgleaner capture-channel --journal "图书馆杂志" --channel "数字人文"
-dhgleaner capture --journal "中国数字人文" --url "real contents page URL"
-dhgleaner capture --journal "数位典藏与数位人文" --url "real contents page URL"
-dhgleaner capture --all-journals --year x --issue x
-```
-
 `capture --year x --issue x` without a journal is rejected — capturing everything requires the explicit `--all-journals` flag.
+
+`capture-channel` is only open to journals on the Magtech platform — anything else reports "当前解析器为 xxx，暂不支持 capture-channel" — and the section page comes from the journal's `channelSources` config, or from `--url` when there is none. The only shipped config with `channelSources` is 图书馆杂志, and **its section page does capture** (re-tested 2026-10-22: 40 articles per page, 67 after merging pages, each keeping its own volume/issue/pages), so the command above runs as-is. The 412 wall is only on its **issue entry point** `current.shtml`; see Boundaries.
 
 ### Scattered-article harvest (enumerate a year, then filter by keyword)
 
@@ -273,7 +265,7 @@ If you want the tool to create missing collections for you, set `zotero.autoCrea
 | 数字人文 | `https://szrw.cbpt.cnki.net/` | `cnki_cbpt` | Current public pages work; older issues may need a user-supplied URL | May be empty due to CNKI limits | Not downloaded by default; the link is recorded for manual download |
 | 中国数字人文 | No stable public contents page is published | `generic_html` | Requires `--url` with an accessible contents page | Best effort, usually empty | Metadata-only fallback |
 | 数位典藏与数位人文 | `http://www.tadh.org.tw/` | `generic_html` | Requires `--url` with an accessible contents page | Best effort, usually empty | Metadata-only fallback |
-| 图书馆杂志 | `https://www.libraryjournal.com.cn/` | `magtech` | Issue pages, plus full paginated capture of the 数字人文 section | **Not capturable automatically right now**: the site's anti-bot pre-check returns 412 to every plain HTTP request, so you must pass `--url` with a contents page you can open in a browser | Downloaded and attached when importing selected articles |
+| 图书馆杂志 | `https://www.libraryjournal.com.cn/` | `magtech` | Issue entry point `current.shtml` is blocked by 412 so automatic issue lookup fails; the 数字人文 section paginates fine | **Issue capture is not automatable right now**: the anti-bot pre-check returns 412 on `current.shtml`, so pass `--url` with a contents page you can open in a browser; section capture is unaffected | Downloaded and attached when importing selected articles |
 | 图书馆论坛 | `http://tsglt.zslib.com.cn/` | `magtech` | Volume numbers can be derived from configuration to reach archived issues | Usually available | Downloaded and attached when importing selected articles |
 
 The following journals are marked `harvestOnly: true`: they are collected through `harvest` on a yearly basis only, are skipped by `capture --all-journals`, and do not download PDFs by default.
@@ -442,7 +434,7 @@ PDFs are handled only during import.
 - 数字人文研究 has good archived-issue support via its back-issue page.
 - 数字人文 depends on public CNKI pages; if older issues are behind CAPTCHAs or logins, you must supply an accessible contents-page URL.
 - 图书馆论坛 is wired to its public journal system and can derive historical URLs from `historyUrlTemplate` plus `volumeYearBase` / `volumeBase`.
-- 图书馆杂志 uses the generic Magtech parser and has a 数字人文 section configured, but **the site's anti-bot pre-check returns 412 to every plain HTTP request** (not occasionally), so neither issue capture nor `capture-channel` currently works for it. Per the project's red lines we do **not** bypass that check; open the contents page in a browser yourself and pass it via `--url`, which may still fail. Its `historyUrlTemplate` contains `{volume}` while `volumeYearBase` / `volumeBase` are not configured, so locating archived issues by year is unavailable too — the error message now says so explicitly.
+- 图书馆杂志 uses the generic Magtech parser and has a 数字人文 section configured. **The 412 pre-check only fires on the issue entry point `current.shtml`** (not occasionally, still true on the 2026-10-22 re-test), so `capture --journal 图书馆杂志 --year x --issue x` fails. The section page `showChannelArticle.do` and the archive index `showOldVolumn.do` answer plain requests, so `capture-channel --journal 图书馆杂志 --channel 数字人文` works. Per the project's red lines we do **not** bypass the pre-check; to capture a single issue, open its contents page in a browser yourself and pass it via `--url`, which may still fail. Its `historyUrlTemplate` contains `{volume}` while `volumeYearBase` / `volumeBase` are not configured, so locating archived issues by year is unavailable too — the error message now says so explicitly.
 - 中国数字人文 contents pages often redirect to WeChat, so authors and abstracts may not be complete; the tool degrades to titles and links.
 - 数位典藏与数位人文 pages that return platform promotional content are rejected by the quality checks; prefer the official TADH announcement page or a manually curated list.
 - This tool **never** solves CAPTCHAs, bypasses logins, or substitutes for your institution's access rights.

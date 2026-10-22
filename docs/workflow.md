@@ -42,7 +42,14 @@ dhgleaner capture --journal "期刊名" --year x --volume x --issue x
 
 ```bash
 dhgleaner capture-channel --journal "图书馆杂志" --channel "数字人文"
+dhgleaner capture-channel --journal "期刊名" --channel "栏目名" --url "栏目页URL"
 ```
+
+前提：
+
+- 解析器必须是 `magtech`。其他皮肤会直接返回「当前解析器为 xxx，暂不支持 capture-channel」并记为一次失败。
+- 栏目页地址来自该刊配置的 `channelSources`；没配就必须给 `--url`。
+- 默认配置里写了 `channelSources` 的只有《图书馆杂志》。它的栏目页 `showChannelArticle.do` 用普通请求就能读到（2026-10-22 复测：单页 40 篇、合并分页后 67 篇），上面第一条命令可以直接跑；该刊被 412 挡住的是期次入口 `current.shtml`，与栏目页无关。
 
 要求：
 

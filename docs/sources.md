@@ -15,7 +15,7 @@
 | 数字人文 | `cnki_cbpt` | 当前公开页或手动 URL | 历史期可能受 CNKI 验证码限制 |
 | 中国数字人文 | `generic_html` | 手动 URL / 人工校正 | 目录常跳转微信，作者摘要可能缺失 |
 | 数位典藏与数位人文 | `generic_html` | 手动 URL / 人工校正 | Airiti 返回内容需强校验；TADH 公告页适合人工校正 |
-| 图书馆杂志 | `magtech` | 需手动 `--url` | 官网反爬前置检查对普通 HTTP 请求稳定返回 412，期次与栏目抓取目前都无法自动完成；不绕过该检查。另缺 `volumeYearBase`/`volumeBase`，按年期定位过刊不可用 |
+| 图书馆杂志 | `magtech` | 栏目抓取可用；期次需手动 `--url` | 反爬前置检查只打在期次入口 `current.shtml`（稳定 412，2026-10-22 复测），按红线不绕过，抓单期要 `--url`；栏目页 `showChannelArticle.do` 与过刊索引 `showOldVolumn.do` 能正常读取，`capture-channel` 可用。另缺 `volumeYearBase`/`volumeBase`，按年期定位过刊不可用 |
 | 图书馆论坛 | `magtech` | 期次抓取 | 支持历史 URL 模板与卷号推算 |
 
 以下散篇期刊标了 `harvestOnly: true`，只走 `harvest` 按年采集（不进 `capture --all-journals`，默认不下载 PDF）：

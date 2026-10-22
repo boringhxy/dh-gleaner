@@ -85,7 +85,7 @@
       "parser": "magtech",
       "publishRule": "月刊；设有数字人文常设栏目",
       "autoDownloadPdf": true,
-      "pdfNote": "公开期刊系统，导入选中文章时能下载则自动挂载。注意：官网有反爬前置检查，普通 HTTP 请求会稳定收到 412（不是偶发），本项目按红线不绕过该检查；抓取需用 --url 指定可直接打开的目录页，且仍可能失败。另外 historyUrlTemplate 含 {volume} 但未配 volumeYearBase/volumeBase，按年期自动定位过刊不可用。",
+      "pdfNote": "公开期刊系统，导入选中文章时能下载则自动挂载。注意：官网的反爬前置检查只打在期次入口的 current.shtml 上，普通 HTTP 请求会稳定收到 412（不是偶发，2026-10-22 复测仍然如此），本项目按红线不绕过该检查；抓某一期要用 --url 指定可直接打开的目录页。栏目页 showChannelArticle.do 与过刊索引 showOldVolumn.do 可以正常读取，capture-channel 不受影响。另外 historyUrlTemplate 含 {volume} 但未配 volumeYearBase/volumeBase，按年期自动定位过刊不可用。",
       "historyUrlTemplate": "https://www.libraryjournal.com.cn/CN/Y{year}/V{volume}/I{issue}",
       "channelSources": [
         {

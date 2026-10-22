@@ -43,18 +43,3 @@ def pendingPayload(articles: list[dict], **overrides) -> dict:
     }
     payload.update(overrides)
     return payload
-
-
-class FakeZotero:
-    """记录调用参数的 Zotero 假客户端，供导入流程用例使用。"""
-
-    def __init__(self, existingCollections: dict | None = None):
-        self.existingCollections = dict(existingCollections or {})
-        self.createdCollections: list[str] = []
-        self.importedArticles: list[str] = []
-
-    def locateJournalCollection(self, journalName: str):
-        return self.existingCollections.get(journalName)
-
-    def testConnection(self) -> bool:
-        return True

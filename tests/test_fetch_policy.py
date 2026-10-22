@@ -155,3 +155,23 @@ class ChannelThrottleTests(unittest.TestCase):
         self.assertIsNotNone(failure, "触到分页封顶却报 success，等于静默少给一截清单")
         self.assertEqual(failure.kind, "failed")
         self.assertIn("maxChannelPages", failure.detail)
+
+    def testNonMagtechParserIsRejectedBeforeAnyRequest(self):
+        """栏目抓取只对 magtech 开放，README 与 docs/workflow.md 都写的是这句话。
+
+        这一支必须在看站点之前就返回，否则给不支持的皮肤白耗一次请求。
+        """
+        cfg = {"name": "数字人文研究", "parser": "journy3", "url": "http://dhr.ruc.edu.cn"}
+        with tempDataDir() as dataDir:
+            with mock.patch.object(
+                capture_module,
+                "fetchHtml",
+                side_effect=AssertionError("不该发出请求"),
+            ):
+                issue, articles, failure = captureChannel(
+                    cfg, {"userAgent": UA}, StateManager(str(dataDir / "state.json")), "数字人文"
+                )
+        self.assertIsNone(issue)
+        self.assertEqual(articles, [])
+        self.assertEqual(failure.stage, "unsupported")
+        self.assertIn("暂不支持 capture-channel", failure.detail)
