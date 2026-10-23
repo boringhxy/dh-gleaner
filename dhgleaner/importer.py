@@ -124,6 +124,22 @@ def importArticlesDetailed(
             missingCollections.append(article.journal)
             log.warning("未找到《%s》的 Collection 路径", article.journal)
 
+    readError = getattr(zotero, "collectionReadError", None)
+    if readError:
+        # 「一个目录都没查到」在凭据被拒时和「目录真的不存在」是两回事：前者去修凭据，
+        # 后者去建目录。混在一起报，使用者会照着后半句去 Zotero 里手动建 13 个目录。
+        lines.append("## ⚠️ 无法读取 Zotero 目录\n")
+        lines.append("读取 Collection 列表失败，本次没有定位到任何目标目录，导入已暂停：")
+        lines.append(f"- {readError}")
+        lines.append("")
+        lines.append("`查不到目录` 不等于 `目录不存在`——先修凭据再重跑：")
+        lines.append("1. `dhgleaner init` 重新录入 webLibraryId（必须是**数字** userID）与 webApiKey；")
+        lines.append("2. `dhgleaner doctor --zotero` 验证连接并列出各刊期望的目录路径。")
+        return ImportSummary(
+            report="\n".join(lines), attempted=len(articles),
+            aborted=True, abortReason=f"无法读取 Zotero 目录：{readError}",
+        )
+
     if missingCollections:
         lines.append("## ⚠️ Collection 路径不存在\n")
         lines.append("以下期刊的 Zotero Collection 路径未找到，已暂停导入：")

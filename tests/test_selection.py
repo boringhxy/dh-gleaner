@@ -103,6 +103,20 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(outcome.status, STATUS_SKIP_ALL)
         self.assertEqual(outcome.selected, [])
 
+    def test_resolve_by_selection_accepts_index_range(self):
+        """`screen --add` 早就吃 "1,3-5"，import --selection 不吃会让同一种写法两种结果。"""
+        articles = makeArticles(["甲", "乙", "丙", "丁", "戊"])
+        outcome = resolveBySelection("1,3-5", articles)
+        self.assertEqual(outcome.status, STATUS_OK)
+        self.assertEqual([a.title for a in outcome.selected], ["甲", "丙", "丁", "戊"])
+
+    def test_resolve_by_selection_unparsable_is_invalid_not_empty(self):
+        """解析失败必须报「有误」，静默返回 0 篇会让使用者以为已经导完。"""
+        outcome = resolveBySelection("1,,abc", makeArticles(["甲", "乙"]))
+        self.assertEqual(outcome.status, STATUS_INVALID)
+        self.assertIn("无法解析", outcome.message)
+        self.assertEqual(outcome.selected, [])
+
     def test_resolve_all_selects_everything(self):
         articles = makeArticles(["甲", "乙"])
         outcome = resolveAll(articles)

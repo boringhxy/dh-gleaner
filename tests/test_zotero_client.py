@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 
 from dhgleaner.models import Article
-from dhgleaner.zotero_client import ZoteroClient
+from dhgleaner.zotero_client import ZoteroClient, classifyCreationFailure
 
 
 class FakeZot:
@@ -189,6 +189,121 @@ class DuplicateCheckTests(unittest.TestCase):
         fake.existing = [_item(f"F{i}", f"填充{i}") for i in range(client.DUPLICATE_SCAN_LIMIT)]
         fake.existing.append(_item("FAR", "数字人文中的形式化偏向"))
         self.assertIsNone(client.checkDuplicate(_article("数字人文中的形式化偏向")))
+
+
+class _RaisingCollectionsZot(FakeZot):
+    """目录列表请求本身失败（400 Invalid user ID 就是这个形态）。"""
+
+    def everything(self, _iterator):
+        raise RuntimeError("HTTP Error 400: Invalid user ID")
+
+
+class CollectionReadErrorTests(unittest.TestCase):
+    def testReadFailureIsRecordedSeparatelyFromMissingPath(self):
+        client = ZoteroClient({"webLibraryId": "1", "webApiKey": "key",
+                               "collectionPath": ["10-研究相关"], "journalCollections": {}})
+        client._zot = _RaisingCollectionsZot()
+
+        self.assertIsNone(client.locateJournalCollection("图书馆论坛"))
+        self.assertIn("Invalid user ID", client.collectionReadError)
+
+    def testNoReadErrorWhenListingSucceeds(self):
+        client, _fake = buildClient(autoCreate=False)
+        self.assertIsNone(client.locateJournalCollection("图书馆论坛"))
+        self.assertIsNone(client.collectionReadError, "查不到路径不能被记成读不出来")
+
+
+class _CreateFailsZot(FakeZot):
+    """create_items 抛错或返回 failed 的假客户端；everything() 按次给不同结果。"""
+
+    def __init__(self, error=None, failed=None, searchPages=None):
+        super().__init__()
+        self.error = error
+        self.failed = failed
+        self.searchPages = list(searchPages or [])
+        self.createCalls = 0
+
+    def everything(self, _iterator):
+        return self.searchPages.pop(0) if self.searchPages else []
+
+    def item_template(self, itemType):
+        return {"itemType": itemType, "title": "", "creators": [], "tags": [], "collections": []}
+
+    def create_items(self, _payload):
+        self.createCalls += 1
+        if self.error is not None:
+            raise self.error
+        return {"successful": {}, "failed": self.failed or {}}
+
+
+class CreationFailureAttributionTests(unittest.TestCase):
+    """一次写入失败要说清「是没写进去，还是写进去了但响应丢了」。
+
+    2026-10-23 真实撞上：`POST /items` 抛 Server disconnected，报告写「创建条目失败」，
+    重跑却报「标题已存在」——服务端其实提交成功了。
+    """
+
+    def _client(self, **kwargs):
+        client = ZoteroClient({"webLibraryId": "1", "webApiKey": "key",
+                               "collectionPath": ["10-研究相关"], "journalCollections": {}})
+        fake = _CreateFailsZot(**kwargs)
+        client._zot = fake
+        return client, fake
+
+    def testClassifyMarkers(self):
+        cases = {
+            RuntimeError("Server disconnected without sending a response."): ("connection", True),
+            TimeoutError("The read operation timed out"): ("connection", True),
+            RuntimeError("HTTP Error 403: Forbidden"): ("rejected", False),
+            RuntimeError("HTTP Error 400: Invalid user ID"): ("rejected", False),
+            ValueError("字段 schema 不匹配"): ("api", False),
+        }
+        for error, expected in cases.items():
+            with self.subTest(error=str(error)):
+                self.assertEqual(classifyCreationFailure(error), expected)
+
+    def testDroppedResponseAfterCommitReportsExistingItem(self):
+        article = _article("唐代元和文学基本创作生态的量化研究")
+        client, fake = self._client(
+            error=RuntimeError("Server disconnected without sending a response."),
+            searchPages=[[], [_item("H5DMUPHC", article.title)]],
+        )
+        result = client.importArticle(article, collectionKey="COL")
+
+        self.assertEqual(result["status"], "skipped")
+        self.assertEqual(result["key"], "H5DMUPHC")
+        self.assertIn("响应中断", result["reason"])
+        self.assertEqual(fake.createCalls, 1, "回查只能查重，不得再写一次")
+
+    def testDroppedResponseWithNothingCreatedTellsUserToRerun(self):
+        article = _article("数字人文方法论、人文伦理与批判性教育")
+        client, _fake = self._client(
+            error=RuntimeError("Server disconnected without sending a response."),
+            searchPages=[[], []],
+        )
+        result = client.importArticle(article, collectionKey="COL")
+
+        self.assertEqual(result["status"], "failed")
+        self.assertIn("重跑", result["reason"])
+        self.assertIn("disconnected", result["reason"], "要把真实异常带给使用者")
+
+    def testRejectedCredentialsIsNamedAsCredentials(self):
+        article = _article("计算批评：人文概念与数字方法")
+        client, _fake = self._client(error=RuntimeError("HTTP Error 403: Invalid user ID"))
+        result = client.importArticle(article, collectionKey="COL")
+
+        self.assertEqual(result["status"], "failed")
+        self.assertIn("拒绝写入", result["reason"])
+        self.assertIn("userID", result["reason"])
+
+    def testApiFailureKeepsServerDetail(self):
+        article = _article("系列笔谈之四：智能时代古籍OCR技术")
+        client, _fake = self._client(failed={"0": {"code": "validation_failed", "message": "bad date"}})
+        result = client.importArticle(article, collectionKey="COL")
+
+        self.assertEqual(result["status"], "failed")
+        self.assertIn("validation_failed", result["reason"])
+        self.assertNotIn("路径不存在", result["reason"])
 
 
 if __name__ == "__main__":

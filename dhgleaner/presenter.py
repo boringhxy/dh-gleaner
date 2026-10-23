@@ -6,14 +6,13 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Tuple
 
 from .keywords import tagArticles
 from .models import STATUS_PRESENTED, STATUS_SELECTED, Article, IssueInfo
+from .selection_basket import parseIndexSpec
 
-log = logging.getLogger(__name__)
 _TZ = timezone(timedelta(hours=8))
 
 
@@ -188,11 +187,12 @@ def applySelection(
         return []
 
     normalized = sel.replace("，", ",").replace("；", ",").replace("、", ",")
+    # 与 `screen --add` 共用一个解析器：那边支持 1,3-5、这边不吃区间，同一份编号
+    # 写两种语法，使用者按记熟的那条写就会静默选空。
     try:
-        nums = set(int(x.strip()) for x in normalized.split(",") if x.strip())
-    except ValueError:
-        log.warning("无法解析选择: %s", sel)
-        return []
+        nums = set(parseIndexSpec(normalized))
+    except ValueError as e:
+        raise ValueError(f"选择表达式无法解析：{sel}（{e}；支持 1,3,5 与 3-5）") from None
 
     selected = []
     for article in articles:

@@ -66,3 +66,31 @@ SAMPLE_GENERIC = """
 </ul>
 </body></html>
 """
+
+#: generic_html（DHCN《数字人文》某期清单页，WordPress 皮肤）
+#: 站点菜单/页头/标签云/Read More 都挂在外壳里，真实条目只有 h2.entry-title 那两条。
+SAMPLE_GENERIC_DHCN = """
+<html><body>
+<div class="side-menu"><ul class="sub-menu">
+  <li class="menu-item"><a href="https://www.dhcn.cn/report">中国数字人文发展报告</a></li>
+  <li class="menu-item"><a href="https://nav.dhcn.cn/#term-20">数字人文专业发展联盟</a></li>
+</ul></div>
+<div class="site-header-inside"><span><a href="https://www.dhcn.cn/">数字人文 | DHCN</a></span></div>
+<h1 class="page-title">《数字人文》2025年第4期</h1>
+<div class="cryout">
+<article class="post"><div class="article-inner">
+  <header class="entry-header"><h2 class="entry-title"><a href="https://mp.weixin.qq.com/s/AAA">迈向AI时代：数字人文基础设施的先锋之路 ——刘炜先生访谈录</a></h2></header>
+  <div class="entry-after-image">
+    <div class="entry-meta"><span class="tags"><a href="https://www.dhcn.cn/tag/t1">基础设施</a></span></div>
+    <footer class="post-continue-container"><a href="https://mp.weixin.qq.com/s/AAA">Read More "迈向AI时代：数字人文基础设施的先锋之路"</a></footer>
+  </div>
+</div></article>
+<article class="post"><div class="article-inner">
+  <header class="entry-header"><h2 class="entry-title"><a href="https://mp.weixin.qq.com/s/BBB">基于改进YOLOv8的刺绣动态检测与分类研究</a></h2></header>
+  <div class="entry-after-image">
+    <footer class="post-continue-container"><a href="https://mp.weixin.qq.com/s/BBB">Read More "基于改进YOLOv8的刺绣动态检测与分类研究"</a></footer>
+  </div>
+</div></article>
+</div>
+</body></html>
+"""

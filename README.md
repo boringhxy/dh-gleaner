@@ -177,11 +177,11 @@ dhgleaner harvest --year 2026 --dry-run
 | `dhgleaner export-review` | 导出 Excel 筛选表 `data/review_selection.xlsx` |
 | `dhgleaner import --spreadsheet data/review_selection.xlsx` | 按表格勾选导入 |
 | `dhgleaner import --spreadsheet data/review_selection.xlsx --dry-run` | 只预览会导入哪些 |
-| `dhgleaner import --selection "1,3,5"` | 按编号导入 |
+| `dhgleaner import --selection "1,3-5"` | 按编号导入（支持区间） |
 | `dhgleaner import --titles-file "titles.txt" --confirm-titles` | 按题名匹配导入 |
 | `dhgleaner import --selection "都不要"` | 本批全部不导入，标记为跳过 |
 
-`--dry-run` 对以上任何一条导入路径都有效：只预览、不写 Zotero，也不改动待筛清单和 `state.json`。`--selection` 不接受空值，「都不要」必须明确写出来。
+`--dry-run` 对以上任何一条导入路径都有效：只预览、不写 Zotero，也不改动待筛清单和 `state.json`。`--selection` 不接受空值，「都不要」必须明确写出来。编号写法与 `screen --add` 一致——`1,3,5` 与 `1-7` 都支持，解析不了会直接报错，不会静默选成 0 篇。
 
 `export-review` 生成 `data/review_selection.xlsx`，在「筛选」页把「是否导入」列填「是」再执行 `import --spreadsheet`。
 

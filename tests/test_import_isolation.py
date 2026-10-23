@@ -154,5 +154,36 @@ class ImportAbortLeavesNoTraceTests(unittest.TestCase):
             self.assertIn("连接失败", outcome.report)
 
 
+class _UnreadableCollectionsZotero(_NoCollectionZotero):
+    """连得上、但读目录就被拒（400 Invalid user ID 的真实形态）。"""
+
+    collectionReadError = "HTTP Error 400: Invalid user ID"
+
+
+class CollectionReadFailureAttributionTests(unittest.TestCase):
+    """「一个目录都没查到」有两种原因，报错了使用者就会去做错的那件事。"""
+
+    def setUp(self):
+        self._original = service_module.ZoteroClient
+
+    def tearDown(self):
+        service_module.ZoteroClient = self._original
+
+    def testReadErrorIsNotReportedAsMissingPath(self):
+        service_module.ZoteroClient = _UnreadableCollectionsZotero
+        with tempDataDir():
+            writePending(pendingPayload(PRESENTED_ARTICLES))
+            paths_module.getPaths().review.write_text("# 旧清单\n", encoding="utf-8")
+
+            markdown, articles = loadPending()
+            outcome = runImport(articles, articles, markdown, _cfg())
+
+            self.assertTrue(outcome.aborted)
+            self.assertIn("无法读取 Zotero 目录", outcome.abortReason)
+            self.assertIn("Invalid user ID", outcome.report, "要把服务端原话带出来")
+            self.assertNotIn("路径不存在", outcome.report)
+            self.assertIn("init", outcome.report, "该指向修凭据的入口")
+
+
 if __name__ == "__main__":
     unittest.main()

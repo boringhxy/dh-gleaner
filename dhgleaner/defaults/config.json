@@ -32,6 +32,9 @@
           "dhcn.cn",
           "mp.weixin.qq.com"
         ],
+        "containerSelectors": [
+          "h2.entry-title"
+        ],
         "titleBlacklist": [
           "Read More",
           "首页",

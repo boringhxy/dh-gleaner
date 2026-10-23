@@ -204,6 +204,14 @@ def cmdInitCollections(args, cfg):
     missing = [row for row in report.rows if row.missing]
     if journals:
         missing = [row for row in missing if row.journal in journals]
+    errored = [row for row in report.rows if row.error and (not journals or row.journal in journals)]
+    if errored:
+        # 预检失败的行 missing 是空的，若继续往下判「无缺失」就会误报「都已就绪」，
+        # 400 Invalid user ID 这类凭据错误正是这样被掩盖掉的。此时不能建目录。
+        print(f"\n⚠️ {len(errored)} 本期刊的目录预检失败——「查不到缺口」不等于「已就绪」，本次未写入任何目录。")
+        print("失败原因见上表「预检出错」列。")
+        print(credentialHint())
+        return
     if not missing:
         print("\n✅ 目标期刊的 Collection 目录都已就绪，无需创建。")
         return
@@ -689,7 +697,7 @@ def main():
     pScreen.add_argument("--import", dest="import_selected", action="store_true", help="导入筛选篮中的文章")
 
     pImp = sub.add_parser("import", help="导入选中文章到 Zotero")
-    pImp.add_argument("--selection", type=str, help='文章编号，如 "1,3,5"')
+    pImp.add_argument("--selection", type=str, help='文章编号，支持逐个与区间，如 "1,3,5"、"1-7"')
     pImp.add_argument("--titles", type=str, help="按题名匹配待导入文章；用分号或换行分隔")
     pImp.add_argument("--titles-file", type=str, help="从文本文件读取题名列表；每行一条，也支持分号分隔")
     pImp.add_argument("--confirm-titles", action="store_true", help="题名全部唯一匹配后，按用户题名顺序导入")

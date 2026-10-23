@@ -19,6 +19,45 @@ from .title_matcher import normalizeTitle
 
 log = logging.getLogger(__name__)
 
+# 「请求可能已经写进去了，只是响应没回来」的那类错误特征。Zotero 服务端提交写入
+# 之后连接才断（实测 `Server disconnected without sending a response.`）时，条目其实
+# 已经在库里；把它报成「创建条目失败」，使用者重跑就会看到一条自相矛盾的「跳过」。
+_CONNECTION_MARKERS = (
+    "disconnected", "connection reset", "connection aborted", "connection refused",
+    "timed out", "timeout", "chunkedencoding", "remoteprotocol", "readerror",
+    "connecterror", "networkerror", "eof occurred",
+)
+# 凭据/userID 被拒：重试一万次也不会好，必须和「网络抖了一下」分开说。
+_REJECTED_MARKERS = (
+    "401", "403", "412", "invalid user id", "unauthorized", "forbidden",
+    "incorrect library id", "key is not valid",
+)
+
+
+def classifyCreationFailure(error: Exception) -> tuple[str, bool]:
+    """把创建条目时抛出的异常归成 (kind, committed)。
+
+    kind 取 `connection` / `rejected` / `api`；committed 表示写入可能已在服务端完成，
+    需要回查而不是直接判失败。按异常类名与报文判断而不 isinstance(httpx.*)：httpx 只是
+    pyzotero 的传递依赖，把它写成本模块的直接依赖会让「换一个 HTTP 后端」变成改代码。
+    """
+    signal = f"{type(error).__name__} {error}".lower()
+    if any(marker in signal for marker in _REJECTED_MARKERS):
+        return "rejected", False
+    if any(marker in signal for marker in _CONNECTION_MARKERS):
+        return "connection", True
+    return "api", False
+
+
+class ItemCreationError(Exception):
+    """创建条目失败，携带可给使用者看的分类信息。"""
+
+    def __init__(self, kind: str, detail: str, committed: bool = False):
+        super().__init__(detail)
+        self.kind = kind
+        self.detail = detail
+        self.committed = committed
+
 
 class ZoteroClient:
     """Zotero 操作封装。"""
@@ -40,6 +79,8 @@ class ZoteroClient:
         self._collectionCache: dict = {}
         # 本次运行内自动新建的 Collection 名称，按层级从上到下；用于向用户交代写了什么
         self.createdCollections: list[str] = []
+        # 读取 Collection 列表时的 API 错误；非空时「找不到目录」这个结论不可信
+        self.collectionReadError: Optional[str] = None
 
     @property
     def zot(self):
@@ -120,6 +161,9 @@ class ZoteroClient:
         try:
             collections = self._allCollections()
         except Exception as e:
+            # 返回 None 之外还要留痕：调用方据此区分「目录真的不存在」和「没读成」，
+            # 否则 400 Invalid user ID 会被报成「Collection 路径不存在」。
+            self.collectionReadError = str(e) or type(e).__name__
             log.error("获取 collections 失败: %s", e)
             return None
 
@@ -225,19 +269,20 @@ class ZoteroClient:
 
         try:
             resp = self.zot.create_items([template])
-            successful = resp.get("successful") or resp.get("success") or {}
-            if isinstance(successful, dict):
-                created = successful.get("0")
-                if isinstance(created, dict) and created.get("key"):
-                    return created["key"]
-                if isinstance(created, str):
-                    return created
-            if resp.get("failed"):
-                log.error("创建条目失败: %s", resp.get("failed"))
-            return None
         except Exception as e:
-            log.error("创建条目异常: %s", e)
-            return None
+            kind, committed = classifyCreationFailure(e)
+            log.error("创建条目异常(%s): %s", kind, e)
+            raise ItemCreationError(kind, str(e) or type(e).__name__, committed=committed) from e
+        successful = resp.get("successful") or resp.get("success") or {}
+        if isinstance(successful, dict):
+            created = successful.get("0")
+            if isinstance(created, dict) and created.get("key"):
+                return created["key"]
+            if isinstance(created, str):
+                return created
+        detail = str(resp.get("failed") or resp)
+        log.error("创建条目失败: %s", detail)
+        raise ItemCreationError("api", detail)
 
     def _buildTags(self, article: Article) -> List[str]:
         """构建标签列表。"""
@@ -282,6 +327,31 @@ class ZoteroClient:
             log.error("记录 PDF 链接附件异常: %s", e)
             return False
 
+    def _describeCreationFailure(self, article: Article, error: ItemCreationError) -> dict:
+        """把创建失败翻译成人能据此决定下一步的话，而不是一律「创建条目失败」。"""
+        if error.committed:
+            # 写入可能已经提交、只是响应丢了：回查一次，别让人以为没写进去而重复导。
+            existing = self.checkDuplicate(article)
+            if existing:
+                log.info("创建响应中断但条目已存在: %s (%s)", article.title[:30], existing)
+                return {
+                    "status": "skipped",
+                    "key": existing,
+                    "reason": "写入已完成，只是响应中断；条目已存在于库中，无需重跑",
+                }
+            return {
+                "status": "failed",
+                "key": "",
+                "reason": f"与 Zotero 的连接中断，未能确认是否写入；重跑一次（若报「标题已存在」说明其实写成了）：{error.detail[:120]}",
+            }
+        if error.kind == "rejected":
+            return {
+                "status": "failed",
+                "key": "",
+                "reason": f"Zotero 拒绝写入，重试无用（检查 webLibraryId 是否为数字 userID、webApiKey 是否有效）：{error.detail[:120]}",
+            }
+        return {"status": "failed", "key": "", "reason": f"创建条目失败：{error.detail[:160]}"}
+
     def importArticle(
         self,
         article: Article,
@@ -313,14 +383,17 @@ class ZoteroClient:
             extraTags.append("PDF待手动下载")
         extraText = " | ".join(extraParts)
 
-        itemKey = self.createArticleItem(
-            article,
-            collectionKey,
-            extraText=extraText,
-            extraTags=extraTags,
-        )
+        try:
+            itemKey = self.createArticleItem(
+                article,
+                collectionKey,
+                extraText=extraText,
+                extraTags=extraTags,
+            )
+        except ItemCreationError as e:
+            return self._describeCreationFailure(article, e)
         if not itemKey:
-            return {"status": "failed", "key": "", "reason": "创建条目失败"}
+            return {"status": "failed", "key": "", "reason": "创建条目失败：服务端未返回新条目的 key"}
 
         pdfOk = False
         linkRecorded = False

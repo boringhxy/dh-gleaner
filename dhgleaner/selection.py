@@ -91,9 +91,20 @@ def resolveBySelection(selection: str | None, articles: Sequence[Article]) -> Se
     normalized = (selection or "").strip()
     if normalized in SKIP_TOKENS:
         return SelectionOutcome(status=STATUS_SKIP_ALL, message="全部标记为不要")
-    selected = applySelection(list(articles), normalized)
+    try:
+        selected = applySelection(list(articles), normalized)
+    except ValueError as e:
+        # 「写了个解析不了的编号」和「这批一篇都没选」必须分开：后者是正常操作
+        # （都不要），前者静默返回 0 篇会让使用者以为已经导完了。
+        return SelectionOutcome(
+            status=STATUS_INVALID,
+            message=f"导入范围有误：{e}\n先用 `dhgleaner review` 看当前清单的编号，注意编号随每次抓取重置。",
+        )
     if not selected:
-        return SelectionOutcome(status=STATUS_EMPTY, message="未选中任何文章。")
+        return SelectionOutcome(
+            status=STATUS_EMPTY,
+            message=f"未选中任何文章（当前清单共 {len(articles)} 条，有效编号 1-{len(articles)}）。",
+        )
     return SelectionOutcome(status=STATUS_OK, selected=selected, message=_byIndexMessage(len(selected)))
 
 

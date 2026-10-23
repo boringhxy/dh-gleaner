@@ -176,11 +176,11 @@ Journals marked `harvestOnly: true` take part in the harvest rotation only: `cap
 | `dhgleaner export-review` | Export `data/review_selection.xlsx` |
 | `dhgleaner import --spreadsheet data/review_selection.xlsx` | Import the rows ticked in the sheet |
 | `dhgleaner import --spreadsheet data/review_selection.xlsx --dry-run` | Preview only |
-| `dhgleaner import --selection "1,3,5"` | Import by index |
+| `dhgleaner import --selection "1,3-5"` | Import by index (ranges supported) |
 | `dhgleaner import --titles-file "titles.txt" --confirm-titles` | Import by title matching |
 | `dhgleaner import --selection "都不要"` | Skip this batch entirely |
 
-`--dry-run` works with any of the import paths above: it only previews, and neither writes to Zotero nor touches the shortlist or `state.json`. An empty `--selection` is rejected — skipping the whole batch has to be spelled out as `都不要`.
+`--dry-run` works with any of the import paths above: it only previews, and neither writes to Zotero nor touches the shortlist or `state.json`. An empty `--selection` is rejected — skipping the whole batch has to be spelled out as `都不要`. Index syntax is shared with `screen --add`: both `1,3,5` and `1-7` work, and anything unparsable is an error rather than a silent zero-article import.
 
 `export-review` writes `data/review_selection.xlsx`; set the "是否导入" column to "是" on the "筛选" sheet, then run `import --spreadsheet`.
 

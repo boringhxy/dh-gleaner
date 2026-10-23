@@ -107,13 +107,13 @@ dhgleaner harvest --year 2026 --dry-run
 dhgleaner review
 dhgleaner abstract --index x
 dhgleaner export-review
-dhgleaner import --selection "1,3,5"
+dhgleaner import --selection "1,3-5"
 dhgleaner import --selection "都不要"
 ```
 
 依次是：重新显示最近一次清单、查看某一篇的完整摘要、导出 Excel 勾选表、按编号导入、本批全部跳过。
 
-任何一条导入路径都能加 `--dry-run`：只预览，不写 Zotero，也不改 `pending.json` 与 `state.json`。`--selection` 传空值会被拒绝——「都不要」必须明确写出来，否则 shell 里没展开的变量就会把整张清单标成已跳过。
+任何一条导入路径都能加 `--dry-run`：只预览，不写 Zotero，也不改 `pending.json` 与 `state.json`。`--selection` 传空值会被拒绝——「都不要」必须明确写出来，否则 shell 里没展开的变量就会把整张清单标成已跳过。编号写法与 `screen --add` 共用一个解析器：`1,3,5` 和 `3-5` 都吃，写错了报「导入范围有误」，不会静默选成 0 篇。
 
 筛选篮适合边看边收：
 

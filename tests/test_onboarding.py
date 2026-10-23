@@ -186,6 +186,18 @@ class InitCollectionsCliTests(unittest.TestCase):
         self.assertIn("已就绪", out)
         self.assertEqual(ensureCalls, 0)
 
+    def testPrecheckErrorIsNotReportedAsReady(self):
+        """预检失败（如 400 Invalid user ID）时 missing 是空的，不能因此宣布「都已就绪」，更不能建目录。"""
+        report = CollectionsReport(connected=True, rows=[
+            CollectionPlanRow(journal="数字人文研究", path=["A", "B"], missing=[], error="HTTP 400 Invalid user ID"),
+        ])
+        out, ensureCalls = self._run(
+            type("Args", (), {"journal": None, "yes": True})(), report
+        )
+        self.assertIn("预检失败", out)
+        self.assertNotIn("都已就绪", out)
+        self.assertEqual(ensureCalls, 0, "凭据出错时不得凭「无缺口」写库")
+
     def testConnectionFailurePrintsHint(self):
         report = CollectionsReport(connected=False, connectionError="Zotero 连接失败或凭据未配置")
         out, ensureCalls = self._run(
