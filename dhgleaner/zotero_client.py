@@ -298,16 +298,49 @@ class ZoteroClient:
     def attachPdf(
         self, itemKey: str, pdfPath: str, title: str = "全文PDF"
     ) -> bool:
-        """挂载 PDF 附件到指定条目。"""
+        """挂载 PDF 附件到指定条目。
+
+        不用 `attachment_simple`：它先创建附件记录再上传文件，配额满等上传失败
+        会抛异常且新记录的 key 被吞掉，库里留下「记录在、文件哪都不在」的悬空
+        附件（桌面端打开报「找不到文件」）。拆成创建 + 上传两步，失败时删除刚
+        创建的记录。
+        """
         if not os.path.exists(pdfPath):
             log.error("PDF 文件不存在: %s", pdfPath)
             return False
+        created = None
         try:
-            resp = self.zot.attachment_simple([pdfPath], parentid=itemKey)
-            return bool(resp.get("successful") or resp.get("success"))
+            template = self.zot.item_template("attachment")
+            template.update({
+                "title": os.path.basename(pdfPath),
+                "parentItem": itemKey,
+                "linkMode": "imported_file",
+                "contentType": "application/pdf",
+                "charset": "",
+                # 服务端拒绝 filename 含目录路径，创建时只能给 basename
+                "filename": os.path.basename(pdfPath),
+            })
+            resp = self.zot.create_items([template])
+            created = (resp.get("successful") or resp.get("success") or {}).get("0") or {}
+            key = created.get("key")
+            if not key:
+                log.error("创建附件记录失败: %s", resp.get("failed") or resp)
+                return False
+            result = self.zot.upload_attachments(
+                [{**template, "key": key, "filename": pdfPath}]
+            )
+            if result.get("success") or result.get("unchanged"):
+                return True
+            log.error("上传 PDF 未成功: %s", result.get("failure"))
         except Exception as e:
             log.error("挂载 PDF 异常: %s", e)
-            return False
+        if created and created.get("key"):
+            try:
+                self.zot.delete_item({"key": created["key"], "version": created.get("version", 0)})
+                log.info("已回滚悬空附件记录: %s", created["key"])
+            except Exception as e:
+                log.error("回滚附件记录 %s 失败，需手动删除: %s", created["key"], e)
+        return False
 
 
     def attachUrl(

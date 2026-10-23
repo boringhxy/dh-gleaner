@@ -306,5 +306,104 @@ class CreationFailureAttributionTests(unittest.TestCase):
         self.assertNotIn("路径不存在", result["reason"])
 
 
+class FakeAttachZot:
+    """只实现附件挂载所需调用的假客户端，可注入上传失败。"""
+
+    def __init__(self, upload_error=None, upload_result=None):
+        self.upload_error = upload_error
+        self.upload_result = upload_result
+        self.created: list[dict] = []
+        self.uploaded: list[dict] = []
+        self.deleted: list[dict] = []
+
+    def item_template(self, item_type):
+        return {
+            "itemType": item_type, "title": "", "parentItem": "",
+            "linkMode": "linked_file", "contentType": "", "charset": "",
+            "filename": "", "url": "", "note": "", "tags": [],
+        }
+
+    def create_items(self, payload):
+        entry = dict(payload[0])
+        entry["key"] = f"ATT{len(self.created)}"
+        entry["version"] = 42
+        self.created.append(entry)
+        return {"successful": {"0": entry}, "failed": {}}
+
+    def upload_attachments(self, attachments, parentid=None, basedir=None):
+        self.uploaded.extend(attachments)
+        if self.upload_error:
+            raise self.upload_error
+        return self.upload_result
+
+    def delete_item(self, payload, last_modified=None):
+        self.deleted.append(payload)
+        return True
+
+
+class AttachPdfRollbackTests(unittest.TestCase):
+    """上传失败必须回滚刚创建的附件记录。
+
+    真实事故：配额满时 pyzotero 先创建记录、再在上传步骤抛异常，记录留在云端
+    但文件不存在，桌面端同步后打开报「找不到文件」。
+    """
+
+    def setUp(self):
+        import os
+        import tempfile
+        fd, self.pdfPath = tempfile.mkstemp(suffix=".pdf")
+        os.close(fd)
+
+    def tearDown(self):
+        import os
+        os.unlink(self.pdfPath)
+
+    def _client(self, fake):
+        client = ZoteroClient({"webLibraryId": "1", "webApiKey": "k"})
+        client._zot = fake
+        return client
+
+    def testUploadExceptionRollsBackCreatedRecord(self):
+        fake = FakeAttachZot(upload_error=Exception("File would exceed quota (301.8 > 300)"))
+        ok = self._client(fake).attachPdf("PARENT1", self.pdfPath)
+        self.assertFalse(ok)
+        self.assertEqual([d["key"] for d in fake.deleted], ["ATT0"])
+
+    def testUploadRejectedResultRollsBackCreatedRecord(self):
+        fake = FakeAttachZot(upload_result={"success": [], "failure": [{"key": "ATT0"}], "unchanged": []})
+        ok = self._client(fake).attachPdf("PARENT1", self.pdfPath)
+        self.assertFalse(ok)
+        self.assertEqual([d["key"] for d in fake.deleted], ["ATT0"])
+
+    def testUploadSuccessKeepsRecord(self):
+        fake = FakeAttachZot(upload_result={"success": [{"key": "ATT0"}], "failure": [], "unchanged": []})
+        ok = self._client(fake).attachPdf("PARENT1", self.pdfPath)
+        self.assertTrue(ok)
+        self.assertEqual(fake.deleted, [])
+
+    def testUnchangedCountsAsAttached(self):
+        fake = FakeAttachZot(upload_result={"success": [], "failure": [], "unchanged": [{"key": "ATT0"}]})
+        ok = self._client(fake).attachPdf("PARENT1", self.pdfPath)
+        self.assertTrue(ok)
+        self.assertEqual(fake.deleted, [])
+
+    def testCreatePayloadUsesBasenameAndImportedMode(self):
+        # 服务端拒绝 filename 含目录路径，创建用的必须是 basename
+        import os
+        fake = FakeAttachZot(upload_result={"success": [{"key": "ATT0"}], "failure": [], "unchanged": []})
+        self._client(fake).attachPdf("PARENT1", self.pdfPath)
+        created = fake.created[0]
+        self.assertEqual(created["filename"], os.path.basename(self.pdfPath))
+        self.assertEqual(created["linkMode"], "imported_file")
+        self.assertEqual(created["parentItem"], "PARENT1")
+
+    def testUploadPayloadCarriesFullPath(self):
+        # 上传步骤要能读到原文件，filename 必须是完整路径
+        fake = FakeAttachZot(upload_result={"success": [{"key": "ATT0"}], "failure": [], "unchanged": []})
+        self._client(fake).attachPdf("PARENT1", self.pdfPath)
+        self.assertEqual(fake.uploaded[0]["filename"], self.pdfPath)
+        self.assertEqual(fake.uploaded[0]["key"], "ATT0")
+
+
 if __name__ == "__main__":
     unittest.main()
