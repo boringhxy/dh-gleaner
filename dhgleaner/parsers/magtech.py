@@ -54,6 +54,9 @@ class MagtechParser(BaseParser):
         #: 栏目分页封顶。「共 N 页」是从页面文本正则抠出来的，抠错一位数就会
         #: 变成上万个请求，因此必须有硬上限；真需要更深的栏目在配置里调大。
         self.maxChannelPages = int(cfg.get("maxChannelPages", 50))
+        #: 上一次 discoverChannelPageUrls 是否真的截断过分页。capture 侧靠它判断清单
+        #: 完整性，不用拿「页数 == 上限」去猜——正好等于上限的完整栏目会被误判成缺页。
+        self.channelPagesTruncated = False
         self.harvestDelay = cfg.get("harvestDelay", self.harvestDelay)
 
     def parseCurrentIssue(self, html: str) -> Tuple[IssueInfo, List[Article]]:
@@ -73,6 +76,7 @@ class MagtechParser(BaseParser):
 
     def discoverChannelPageUrls(self, html: str, sourceUrl: str) -> List[str]:
         pages = set()
+        truncated = False
         parsedSource = urlparse(sourceUrl)
         sourceQs = parse_qs(parsedSource.query)
         if sourceQs.get("id"):
@@ -91,18 +95,28 @@ class MagtechParser(BaseParser):
         if channelId and totalMatch:
             total = int(totalMatch.group(1))
             if total > self.maxChannelPages:
-                log.warning(
-                    "《%s》栏目页声称共 %d 页，超过上限 %d，只展开前 %d 页；"
-                    "若确实需要更深的分页，请在该刊配置里调大 maxChannelPages。",
-                    self.journalName,
-                    total,
-                    self.maxChannelPages,
-                    self.maxChannelPages,
-                )
+                truncated = True
+                # 先在这里折，不让 range() 真的展开出上万个 URL
                 total = self.maxChannelPages
             for pager in range(1, total + 1):
                 pages.add(self._channelPageUrl(sourceUrl, str(pager), channelId, year))
-        return sorted(pages, key=self._pageSortKey)
+        pages = sorted(pages, key=self._pageSortKey)
+        # 封顶必须作用在合并后的全集上：`changePage(...)` 那条分支收的是页面里真实存在的
+        # 分页项（「每页 N 条」的下拉框就能列出几十个），完全绕开「共 N 页」分支的 clamp，
+        # 只封后者等于上限形同虚设。
+        if self.maxChannelPages and len(pages) > self.maxChannelPages:
+            truncated = True
+            pages = pages[: self.maxChannelPages]
+        self.channelPagesTruncated = truncated
+        if truncated:
+            log.warning(
+                "《%s》栏目分页超过上限 %d 页，只抓前 %d 页，清单可能不完整；"
+                "若确实需要更深的分页，请在该刊配置里调大 maxChannelPages。",
+                self.journalName,
+                self.maxChannelPages,
+                self.maxChannelPages,
+            )
+        return pages
 
     def _channelPageUrl(self, sourceUrl: str, pager: str, channelId: str, year: str) -> str:
         parsed = urlparse(sourceUrl)

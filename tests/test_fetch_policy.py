@@ -110,17 +110,48 @@ class ChannelPaginationCapTests(unittest.TestCase):
     def discover(self, totalPages: int, **cfgOverrides):
         cfg = {"maxChannelPages": 5, **cfgOverrides}
         parser = MagtechParser("图书馆杂志", {"userAgent": UA}, journalCfg=cfg)
-        return parser.discoverChannelPageUrls(CHANNEL_HTML.format(pages=totalPages), CHANNEL_URL)
+        return parser, parser.discoverChannelPageUrls(CHANNEL_HTML.format(pages=totalPages), CHANNEL_URL)
+
+    def discoverPagers(self, totalPagers: int, **cfgOverrides):
+        """只有 `changePage(...)` 分页项、没有「共 N 页」文本的页面。
+
+        真实 Magtech 页面的「每页 N 条」下拉框就是这么写的，走的是另一条分支。
+        """
+        cfg = {"maxChannelPages": 5, **cfgOverrides}
+        parser = MagtechParser("图书馆杂志", {"userAgent": UA}, journalCfg=cfg)
+        anchors = "".join(
+            f'<a href="javascript:void(0);" onclick="changePage(\'{pager}\',\'60\',\'0\')">{pager}</a>'
+            for pager in range(1, totalPagers + 1)
+        )
+        html = f"<html><body><span class=\"item-columnName\">数字人文</span>{anchors}</body></html>"
+        return parser, parser.discoverChannelPageUrls(html, CHANNEL_URL)
 
     def testRunawayPageCountIsCappedNotFollowed(self):
         """「共 N 页」是正则从页面文本里抠的，抠错一位数就是几万个请求。"""
-        self.assertEqual(len(self.discover(99999)), 5)
+        self.assertEqual(len(self.discover(99999)[1]), 5)
 
     def testNormalPageCountIsLeftAlone(self):
-        self.assertEqual(len(self.discover(3)), 3)
+        self.assertEqual(len(self.discover(3)[1]), 3)
 
     def testCapIsConfigurable(self):
-        self.assertEqual(len(self.discover(99999, maxChannelPages=2)), 2)
+        self.assertEqual(len(self.discover(99999, maxChannelPages=2)[1]), 2)
+
+    def testChangePageAnchorsAreCappedToo(self):
+        """封顶必须管住合并后的全集：只封「共 N 页」那条分支等于没有上限。"""
+        _, urls = self.discoverPagers(40)
+        self.assertEqual(len(urls), 5, "页面列出 40 个分页项时，上限 5 必须真的生效")
+
+    def testTruncationIsRecordedOnTheParser(self):
+        truncatedParser, truncatedUrls = self.discoverPagers(40)
+        self.assertEqual(len(truncatedUrls), truncatedParser.maxChannelPages)
+        self.assertTrue(truncatedParser.channelPagesTruncated, "截断过就必须记账，capture 靠它判断清单完整性")
+
+        wholeParser, wholeUrls = self.discover(5)
+        self.assertEqual(len(wholeUrls), 5)
+        self.assertFalse(
+            wholeParser.channelPagesTruncated,
+            "恰好等于上限的完整栏目没有少一页，不该被当成触顶",
+        )
 
 
 class ChannelThrottleTests(unittest.TestCase):
@@ -155,6 +186,17 @@ class ChannelThrottleTests(unittest.TestCase):
         self.assertIsNotNone(failure, "触到分页封顶却报 success，等于静默少给一截清单")
         self.assertEqual(failure.kind, "failed")
         self.assertIn("maxChannelPages", failure.detail)
+
+    def testChannelExactlyAtTheCapSavesNormally(self):
+        """栏目恰好有上限那么多页时是完整清单，不该被当成截断丢掉。
+
+        旧代码用 `len(pages) >= maxChannelPages` 判触顶，把这一种合法情况误判成
+        suspect，整份清单不落盘——用户看到的是「抓到了却什么都没留下」。
+        """
+        issue, articles, failure, sleeps = self.capture(5, maxChannelPages=5)
+        self.assertIsNone(failure)
+        self.assertEqual(len(sleeps), 4, "5 页要逐页限速走完，不能提前判定触顶丢弃")
+        self.assertIsNotNone(issue)
 
     def testNonMagtechParserIsRejectedBeforeAnyRequest(self):
         """栏目抓取只对 magtech 开放，README 与 docs/workflow.md 都写的是这句话。

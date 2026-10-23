@@ -158,7 +158,7 @@ def loadSpreadsheetSelection(path: Path | str, articles: List[Article], pendingM
         rawIndex = _cell(row, indexCol).strip()
         try:
             index = int(float(rawIndex))
-        except ValueError as e:
+        except (ValueError, OverflowError) as e:
             raise SpreadsheetValidationError(f"第 {rowNumber} 行编号不是数字: {rawIndex}") from e
         article = byIndex.get(index)
         if not article:
@@ -343,6 +343,11 @@ def _readWorkbookRows(path: Path) -> dict[str, list[list[str]]]:
             return result
     except zipfile.BadZipFile as e:
         raise SpreadsheetValidationError(f"无法读取 XLSX 文件: {path}") from e
+    except KeyError as e:
+        # 合法 zip 但不是 xlsx（例如改了后缀名的 .zip）时 workbook.xml 直接缺失
+        raise SpreadsheetValidationError(f"不是有效的 XLSX 筛选表，缺少 {e}") from e
+    except ET.ParseError as e:
+        raise SpreadsheetValidationError(f"筛选表内部 XML 已损坏，请用 Excel 另存一份: {e}") from e
 
 
 def _readSheetNames(zf: zipfile.ZipFile) -> list[str]:

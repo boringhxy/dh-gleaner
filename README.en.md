@@ -180,6 +180,8 @@ Journals marked `harvestOnly: true` take part in the harvest rotation only: `cap
 | `dhgleaner import --titles-file "titles.txt" --confirm-titles` | Import by title matching |
 | `dhgleaner import --selection "都不要"` | Skip this batch entirely |
 
+`--dry-run` works with any of the import paths above: it only previews, and neither writes to Zotero nor touches the shortlist or `state.json`. An empty `--selection` is rejected — skipping the whole batch has to be spelled out as `都不要`.
+
 `export-review` writes `data/review_selection.xlsx`; set the "是否导入" column to "是" on the "筛选" sheet, then run `import --spreadsheet`.
 
 A **selection basket** is handy when you browse and collect as you go: `--list` shows the current basket, `--search` finds indices by keyword, `--add` / `--remove` change the basket, `--clear` empties it, and `--import` writes everything in the basket.

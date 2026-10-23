@@ -13,7 +13,7 @@ from typing import List, Optional
 
 from .http_util import downloadFile
 from .models import STATUS_FAILED, STATUS_IMPORTED, Article
-from .state import StateManager
+from .state import StateManager, issueFullySeen
 from .zotero_client import ZoteroClient
 
 log = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ def _markCompleteIssues(
             a for a in articles
             if a.journal == article.journal and a.issueInfo().key() == issue.key()
         ]
-        if issueArticles and all(state.isArticleProcessed(a.journal, a.articleKey()) for a in issueArticles):
+        if issueFullySeen(issueArticles) and all(state.isArticleProcessed(a.journal, a.articleKey()) for a in issueArticles):
             state.markIssueProcessed(article.journal, issue)
 
 

@@ -181,6 +181,8 @@ dhgleaner harvest --year 2026 --dry-run
 | `dhgleaner import --titles-file "titles.txt" --confirm-titles` | 按题名匹配导入 |
 | `dhgleaner import --selection "都不要"` | 本批全部不导入，标记为跳过 |
 
+`--dry-run` 对以上任何一条导入路径都有效：只预览、不写 Zotero，也不改动待筛清单和 `state.json`。`--selection` 不接受空值，「都不要」必须明确写出来。
+
 `export-review` 生成 `data/review_selection.xlsx`，在「筛选」页把「是否导入」列填「是」再执行 `import --spreadsheet`。
 
 **筛选篮**适合边浏览边收集：先 `--list` 看当前清单、`--search` 按关键词找编号、`--add` / `--remove` 增删条目，最后 `--import` 把篮子里的文章导入。`--clear` 清空。

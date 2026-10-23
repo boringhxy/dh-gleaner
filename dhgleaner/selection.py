@@ -16,7 +16,7 @@ from .models import STATUS_PRESENTED, STATUS_SELECTED, Article
 from .paths import getPaths
 from .presenter import applySelection
 from .review_spreadsheet import SpreadsheetValidationError, loadSpreadsheetSelection
-from .state import StateManager
+from .state import StateManager, issueFullySeen
 from .title_matcher import (
     allTitleMatchesConfirmed,
     articlesFromTitleMatches,
@@ -65,7 +65,13 @@ def readTitles(titles: str | None = None, titlesFile: str | None = None) -> list
             path = getPaths().dataDir / path
         if not path.exists():
             raise ValidationError(f"题名文件不存在: {path}")
-        chunks.append(path.read_text(encoding="utf-8"))
+        try:
+            content = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError as e:
+            # Windows 记事本另存的题名文件常见是 GBK；调用方只捕 ValidationError，
+            # 让它原样抛出去就是一个裸 traceback 而不是「文件编码不对」。
+            raise ValidationError(f"题名文件不是 UTF-8 编码，请另存为 UTF-8: {path}") from e
+        chunks.append(content)
     return parseTitleList("\n".join(chunks))
 
 
@@ -179,7 +185,7 @@ def markAllPresentedAsSkipped(articles: Sequence[Article], state: StateManager) 
                 continue
             seen.add(issueKey)
             issueArticles = [a for a in articles if a.journal == article.journal and a.issueInfo().key() == issue.key()]
-            if issueArticles and all(state.isArticleProcessed(a.journal, a.articleKey()) for a in issueArticles):
+            if issueFullySeen(issueArticles) and all(state.isArticleProcessed(a.journal, a.articleKey()) for a in issueArticles):
                 state.markIssueProcessed(article.journal, issue)
     return len(articles)
 

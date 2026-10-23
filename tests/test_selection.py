@@ -149,6 +149,26 @@ class SelectionTests(unittest.TestCase):
             self.assertTrue(state.isIssueProcessed("数字人文研究", articles[0].issueInfo()))
             self.assertTrue((dataDir / "data" / "state.json").exists())
 
+    def test_skip_all_on_partial_list_does_not_seal_issue(self):
+        """栏目 / harvest 清单里一期只有几篇，跳过它们不许把整期盖章「已处理」。
+
+        一旦盖章，`capture --dedupe` 会在 isIssueProcessed 上直接返回空清单，那一期
+        剩下的文章以后再也抓不到；而「空来自去重」在质量闸门里算合法的空，不会报警。
+        """
+        articles = makeArticles(["甲", "乙"])
+        for article in articles:
+            article.sourceType = "channel"
+        with tempDataDir():
+            state = stateManager({"stateFile": "./data/state.json"})
+            outcome = resolveSkipAll(articles, state)
+            self.assertEqual(outcome.skippedCount, 2)
+            for article in articles:
+                self.assertTrue(state.isArticleProcessed(article.journal, article.articleKey()))
+            self.assertFalse(
+                state.isIssueProcessed("数字人文研究", articles[0].issueInfo()),
+                "部分清单结清了整期 —— 剩下的文章以后再也抓不到了",
+            )
+
 
 class ServiceDataTests(unittest.TestCase):
     def test_save_and_load_pending_round_trip(self):

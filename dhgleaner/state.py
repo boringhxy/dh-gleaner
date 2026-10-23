@@ -18,7 +18,7 @@ import tempfile
 from datetime import datetime, timedelta, timezone
 from typing import Iterable, Iterator, Optional
 
-from .models import IssueInfo
+from .models import Article, IssueInfo
 
 log = logging.getLogger(__name__)
 
@@ -27,6 +27,18 @@ _TZ = timezone(timedelta(hours=8))
 
 def _nowIso() -> str:
     return datetime.now(_TZ).isoformat(timespec="seconds")
+
+
+def issueFullySeen(issueArticles: Iterable[Article]) -> bool:
+    """这批同刊同期文章是否代表「整期目录已经过完一遍」。
+
+    只有整期抓取（``sourceType == "issue"``）拿到的是完整目录。栏目抓取、按年
+    harvest、人工整理清单里一期往往只有几篇，把它们全跳过/导入完就盖上「这期已
+    处理」的章，之后 ``capture --dedupe`` 会在 :meth:`StateManager.isIssueProcessed`
+    上直接返回空清单——那一期剩下的文章永远抓不到，而空清单来自去重属于「合法的
+    空」，质量闸门不会报警，只会沉默。
+    """
+    return bool(issueArticles) and all(article.sourceType == "issue" for article in issueArticles)
 
 
 class StateManager:
@@ -109,14 +121,22 @@ class StateManager:
                 self._writeAtomic()
 
     def _journalState(self, name: str) -> dict:
-        if name not in self.state["journals"]:
-            self.state["journals"][name] = {
-                "lastIssue": None,
-                "lastCheckAt": None,
-                "processedArticles": [],
-                "processedArticleMeta": {},
-            }
-        return self.state["journals"][name]
+        js = self.state["journals"].get(name)
+        # 逐字段补默认值，而不是只在期刊条目整个缺失时补一整套：_quarantineCorrupt
+        # 明确告诉用户可以「从备份手工修复」state.json，而手工修出来的条目很容易只
+        # 留下 lastIssue 这类看得见的字段。读路径用的是 `js.get(...)` tolerates 缺失，
+        # 写路径 `js["processedArticles"]` 却会 KeyError——崩溃点偏偏落在导入循环里，
+        # 那时前几篇已经写进 Zotero，进度和实际入库内容就对不上了。
+        if not isinstance(js, dict):
+            js = {}
+            self.state["journals"][name] = js
+        js.setdefault("lastIssue", None)
+        js.setdefault("lastCheckAt", None)
+        if not isinstance(js.get("processedArticles"), list):
+            js["processedArticles"] = []
+        if not isinstance(js.get("processedArticleMeta"), dict):
+            js["processedArticleMeta"] = {}
+        return js
 
     def updateLastCheck(self, name: str):
         js = self._journalState(name)

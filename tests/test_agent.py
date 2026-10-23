@@ -5,6 +5,7 @@ import json
 import sys
 import tempfile
 import unittest
+import zipfile
 from contextlib import redirect_stdout
 from pathlib import Path
 from unittest import mock
@@ -25,6 +26,7 @@ from dhgleaner.review_spreadsheet import (
     loadSpreadsheetSelection,
     pendingFingerprint,
 )
+from dhgleaner.selection import readTitles
 from dhgleaner.service import CaptureOutcome
 from dhgleaner.state import StateManager
 from dhgleaner.title_matcher import (
@@ -36,6 +38,7 @@ from dhgleaner.title_matcher import (
     renderTitleMatchReport,
     selectionStringFromTitleMatches,
 )
+from dhgleaner.validation import ValidationError
 from dhgleaner.zotero_client import ZoteroClient
 
 try:
@@ -616,6 +619,81 @@ class AgentTests(unittest.TestCase):
             self.assertIn("到 Zotero...", buffer.getvalue())
             self.assertIn("ok", buffer.getvalue())
 
+    def runImport(self, cfg=None, **overrides):
+        """跑一次 cmdImport，返回 (输出文本, 是否真的走到了 _runImport)。"""
+        payload = pendingPayload([{
+            "journal": "数字人文研究",
+            "year": 2026,
+            "volume": 6,
+            "issue": 2,
+            "title": "数字人文中的形式化偏向",
+            "authors": ["赵皓玥"],
+            "articleUrl": "http://example.com/a",
+            "_globalIndex": 1,
+        }])
+        writePending(payload)
+        args = type("Args", (), {
+            "selection": None,
+            "titles": None,
+            "titles_file": None,
+            "confirm_titles": False,
+            "all": False,
+            "spreadsheet": None,
+            "dry_run": False,
+        })()
+        for key, value in overrides.items():
+            setattr(args, key, value)
+        calls = []
+        original = main_module._runImport
+        main_module._runImport = lambda *a, **k: calls.append(a) or "ok"
+        buffer = io.StringIO()
+        try:
+            with redirect_stdout(buffer):
+                main_module.cmdImport(args, cfg or {"http": {}, "journals": [], "zotero": {}})
+        finally:
+            main_module._runImport = original
+        return buffer.getvalue(), calls
+
+    def test_dry_run_blocks_every_import_path(self):
+        """--dry-run 挂在 `--spreadsheet` 分支上等于对其他路径是空头支票。
+
+        `import --all --dry-run` 曾经照样写 Zotero：用户明确表达了只读意图。
+        """
+        for overrides in ({"all": True, "dry_run": True}, {"selection": "1", "dry_run": True}):
+            with self.subTest(**overrides):
+                with tempDataDir():
+                    out, calls = self.runImport(**overrides)
+                    self.assertEqual(calls, [], "--dry-run 绝不能调用真正的导入")
+                    self.assertIn("预览模式", out)
+                    self.assertNotIn("到 Zotero...", out)
+                    self.assertEqual(self.journalsInState(), {}, "预览不该顺手把文章标成已导入")
+
+    def test_empty_selection_is_rejected_not_skip_all(self):
+        """`--selection "$PICK"` 变量没展开时会传进空串，而空串过去等同「都不要」。
+
+        一次手滑就把整张待筛清单标成已处理、封口期次，之后 --dedupe 永久跳过该期。
+        """
+        with tempDataDir():
+            out, calls = self.runImport(selection="  ")
+            self.assertIn("不能为空", out)
+            self.assertEqual(calls, [])
+            self.assertEqual(self.journalsInState(), {}, "被拒绝的输入不该动 state.json")
+            self.assertIn("数字人文中的形式化偏向",
+                          paths_module.getPaths().pending.read_text(encoding="utf-8"))
+
+    def test_skip_all_still_works_and_dry_run_leaves_it_untouched(self):
+        with tempDataDir():
+            out, calls = self.runImport(selection="都不要", dry_run=True)
+            self.assertIn("预览模式", out)
+            self.assertEqual(calls, [])
+            self.assertEqual(self.journalsInState(), {})
+
+    def journalsInState(self) -> dict:
+        statePath = paths_module.getPaths().defaultStateFile
+        if not statePath.exists():
+            return {}
+        return json.loads(statePath.read_text(encoding="utf-8")).get("journals", {})
+
     def testCliVersionFlagMatchesPackageVersion(self):
         """bug 模板要求使用者贴版本号，所以 --version 必须存在且与包内一致。"""
         buffer = io.StringIO()
@@ -625,6 +703,38 @@ class AgentTests(unittest.TestCase):
                     main_module.main()
         self.assertEqual(ctx.exception.code, 0)
         self.assertEqual(buffer.getvalue().strip(), f"dh-gleaner {__version__}")
+
+    def test_malformed_spreadsheet_is_a_clean_error_not_a_traceback(self):
+        """合法 zip 但不是 xlsx（改名、Excel 抽风）时过去抛的是裸 KeyError。
+
+        调用方只捕 SpreadsheetValidationError，用户看到的是一整屏 traceback。
+        """
+        articles = [
+            Article(journal="数字人文研究", year=2026, volume=6, issue=2, title="A", articleUrl="u:a"),
+        ]
+        articles[0]._globalIndex = 1
+        pending = {"capturedAt": "2026-07-20T10:00:00+08:00", "captureType": "issue"}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            notAnXlsx = Path(tmp) / "notes.xlsx"
+            with zipfile.ZipFile(notAnXlsx, "w") as zf:
+                zf.writestr("readme.txt", "只是改了后缀名的普通 zip")
+            with self.assertRaises(SpreadsheetValidationError):
+                loadSpreadsheetSelection(notAnXlsx, articles, pending)
+
+            brokenXlsx = Path(tmp) / "broken.xlsx"
+            with zipfile.ZipFile(brokenXlsx, "w") as zf:
+                zf.writestr("xl/workbook.xml", '<workbook><sheets><sheet name="筛选"/></sheets></workboo')
+            with self.assertRaises(SpreadsheetValidationError):
+                loadSpreadsheetSelection(brokenXlsx, articles, pending)
+
+    def test_non_utf8_titles_file_is_a_clean_error(self):
+        """Windows 记事本另存的题名文件常见是 GBK，读它不该甩 UnicodeDecodeError。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "titles.txt"
+            path.write_bytes("数字人文中的形式化偏向\n".encode("gbk"))
+            with self.assertRaises(ValidationError):
+                readTitles(titlesFile=str(path))
 
 
 class CaptureExitCodeTests(unittest.TestCase):

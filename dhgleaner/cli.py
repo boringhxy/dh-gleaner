@@ -239,9 +239,9 @@ def cmdInit(args, cfg):
 
     if not _isInteractive():
         print("检测到非交互环境，跳过输入式引导。请手动完成配置：")
-        print(f"  1) 把模板 {configTemplatePath()} 复制为 {paths.configLocalPath}，填入你自己的 Zotero 凭据；或")
-        print("  2) 设置环境变量 ZOTERO_LIBRARY_ID 与 ZOTERO_API_KEY；然后")
-        print("  运行 `dhgleaner doctor --zotero` 验证连接。")
+        print("  1) 设置环境变量 ZOTERO_LIBRARY_ID 与 ZOTERO_API_KEY（优先级最高，不落盘）；或")
+        print(f"  2) 把模板 {configTemplatePath()} 复制为 {paths.configLocalPath}，填入你自己的 Zotero 凭据。")
+        print("  然后运行 `dhgleaner doctor --zotero` 验证连接。")
         _printDoctorSummary(cfg)
         return
 
@@ -564,8 +564,13 @@ def _resolveImportOutcome(args, articles: List, pending: dict) -> SelectionOutco
 
     if getattr(args, "all", False):
         return resolveAll(articles)
-    if getattr(args, "selection", None) is not None:
-        return resolveBySelection(args.selection, articles)
+    selection = getattr(args, "selection", None)
+    if selection is not None:
+        if not selection.strip():
+            # `--selection "$PICK"` 里变量没展开时会传进来空串，而空串在口令表里
+            # 等同于「都不要」——一次手滑就把整张待筛清单标成已处理并封口期次。
+            raise ValidationError("--selection 不能为空；请输入编号，或明确输入「都不要」")
+        return resolveBySelection(selection, articles)
     return SelectionOutcome(
         status=STATUS_EMPTY,
         message='请指定导入范围: --selection "1,3,5"、--titles/--titles-file，或 --all',
@@ -598,6 +603,20 @@ def cmdImport(args, cfg):
         print(f'如确认无误，可运行：dhgleaner import --selection "{outcome.selectionHint}"')
         print("或在当前题名命令后追加 --confirm-titles，按你给出的题名顺序导入。")
         return
+    if getattr(args, "dry_run", False) and outcome.status in (STATUS_OK, STATUS_SKIP_ALL):
+        # --dry-run 必须盖住每一条导入路径且不留副作用。旧实现把预览挂在
+        # `--spreadsheet` 分支上，`import --all --dry-run` 会带着「我只看看」
+        # 的意图真的写进 Zotero、改完 state.json 再覆写 pending.json。
+        print("预览模式，未写入 Zotero，也未改动待筛清单和 state.json。")
+        if outcome.status == STATUS_OK:
+            print("")
+            print("# 导入预览")
+            for row in previewArticles(outcome.selected):
+                print(f"{row['position']}. [{row['index']}] {row['title']}")
+        else:
+            print(f"去掉 --dry-run 后将执行：{outcome.message}")
+        print("\n确认无误后去掉 --dry-run 重新运行。")
+        return
     if outcome.status == STATUS_SKIP_ALL:
         marked = resolveSkipAll(articles, stateManager(cfg))
         savePending(markdown, articles)
@@ -611,14 +630,6 @@ def cmdImport(args, cfg):
         return
 
     print(f"{outcome.message}到 Zotero...")
-    if getattr(args, "spreadsheet", None) and getattr(args, "dry_run", False):
-        print("")
-        print("# 表格导入预览")
-        for row in previewArticles(outcome.selected):
-            print(f"{row['position']}. [{row['index']}] {row['title']}")
-        print("\n预览模式未导入 Zotero。确认无误后去掉 --dry-run 重新运行。")
-        return
-
     print("")
     print(_runImport(outcome.selected, articles, markdown, cfg))
 
@@ -683,7 +694,7 @@ def main():
     pImp.add_argument("--titles-file", type=str, help="从文本文件读取题名列表；每行一条，也支持分号分隔")
     pImp.add_argument("--confirm-titles", action="store_true", help="题名全部唯一匹配后，按用户题名顺序导入")
     pImp.add_argument("--spreadsheet", type=str, help="读取 Excel 筛选表中“是否导入=是”的文章")
-    pImp.add_argument("--dry-run", action="store_true", help="配合 --spreadsheet 预览将导入的文章，不写入 Zotero")
+    pImp.add_argument("--dry-run", action="store_true", help="预览将导入的文章，不写入 Zotero、不改动待筛清单（适用于所有导入路径）")
     pImp.add_argument("--all", action="store_true", help="导入全部")
 
     pDoc = sub.add_parser("doctor", help="自检依赖、目录、Zotero 和网络")

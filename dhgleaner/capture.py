@@ -469,10 +469,11 @@ def captureChannel(
         problems.append(
             f"{len(failedPages)}/{len(pages)} 页抓取失败，清单可能不完整：{', '.join(failedPages[:3])}"
         )
-    pageCap = int(getattr(parser, "maxChannelPages", 0) or 0)
-    if pageCap and len(pages) >= pageCap:
+    if getattr(parser, "channelPagesTruncated", False):
+        pageCap = int(getattr(parser, "maxChannelPages", 0) or 0)
         problems.append(
-            f"分页达到上限 {pageCap} 页，只抓到这么多；如需全量请调大该刊配置的 maxChannelPages"
+            f"分页超过 maxChannelPages 上限（{pageCap} 页），只抓到这么多；"
+            "清单不完整，如需全量请调大该刊配置后重抓"
         )
         log.warning("《%s》栏目《%s》%s", name, channelName, problems[-1])
 
