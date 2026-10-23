@@ -26,6 +26,7 @@
 - **CI 增加 Windows**：矩阵从 ubuntu + macOS 扩到三平台 × 4 个 Python 版本。此前 Windows 完全没测过，但安装方式（pipx / uv）和 `requires-python >=3.10` 都没有排除它。配套修掉两处只在 POSIX 成立的前提：`0o600` 权限断言在非 POSIX 平台跳过（NTFS 不保存 POSIX 权限位，`os.chmod` 在 `service.py` 里本来就是 `suppress(OSError)`），终端日志流在 Python 3.7+ 上重配为 UTF-8（英文区 Windows 默认 cp1252，中文日志行会触发 `UnicodeEncodeError`，logging 会把它吞成「--- Logging error ---」让终端一片空白）。第一轮 CI 也照出两处：`test_agent.py` 里直接调 `cmdExportReview` / `cmdImport` 的用例绕过了 `main()`，因而拿不到那步 UTF-8 修正，两个改用 `redirect_stdout` 接走输出并加了断言——生产入口只走 `main()`（MCP 不打印），所以修的是测试而不是往每个 `cmd*` 里塞 `forceUtf8`。
 - **删掉仓库根目录的重复密钥模板**：`config.local.example.json` 在根目录和 `dhgleaner/defaults/` 各有一份、逐字节相同，但代码只读包内那份（`paths.py` 的 `configTemplatePath`），CI 校验的也是包内那份。两份必然漂移，还会让人纠结该改哪一份。根副本连同 sdist `include` 里的引用一并删除。
 - **测试样例集中到 `tests/samples.py`**：`SAMPLE_JOURNY3` / `SAMPLE_CNKI` 与解析器用的 `HTTP_CFG` 原本在 `test_parsers.py` 和 `test_agent.py` 各存一份逐字相同的副本，长 UA 串还有第三份在 `test_harvest.py`。样例一改就两处不同步，两个文件会给出互相矛盾的「预期」。
+- **CI 的三个 action 升到最新主版本**：`actions/checkout@v4` 声明的是 Node.js 20，GitHub 已弃用该运行时（每次运行都刷一条 annotation，且 `ubuntu-latest` 马上要迁到 Ubuntu 26），checkout v4 会先被强制跑在 Node 24 上。现升到 `checkout@v7` / `setup-python@v7` / `upload-artifact@v7`（三者都是 Node 24 运行时）。工作流里这三个 action 除 `python-version` / `name`+`path` 外没有别的入参，跨主版本没有可破的接口；`upload-artifact` 要求同一工作流内产物名唯一，本仓库只有一个 `dist`。
 
 ### 修复
 
