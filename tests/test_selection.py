@@ -97,6 +97,7 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(outcome.status, STATUS_EMPTY)
         self.assertEqual(outcome.selected, [])
         self.assertIn("未选中任何文章", outcome.message)
+        self.assertIn("共 1 条，有效编号 1-1", outcome.message, "越界要给出可选范围，否则只剩一句「没选中」")
 
     def test_resolve_by_selection_skip_token(self):
         outcome = resolveBySelection("都不要", makeArticles(["甲"]))
