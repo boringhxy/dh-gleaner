@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Tuple
 
 from .keywords import tagArticles
-from .models import STATUS_PRESENTED, STATUS_SELECTED, Article, IssueInfo
+from .models import STATUS_IMPORTED, STATUS_PRESENTED, STATUS_SELECTED, Article, IssueInfo
 from .selection_basket import parseIndexSpec
 
 _TZ = timezone(timedelta(hours=8))
@@ -179,11 +179,13 @@ def applySelection(
     sel = selection.strip()
     if sel in ("全部", "all", "全选"):
         for article in articles:
-            article.status = STATUS_SELECTED
+            if article.status != STATUS_IMPORTED and not article.zoteroKey:
+                article.status = STATUS_SELECTED
         return list(articles)
     if sel in ("都不要", "无", "none", ""):
         for article in articles:
-            article.status = STATUS_PRESENTED
+            if article.status != STATUS_IMPORTED and not article.zoteroKey:
+                article.status = STATUS_PRESENTED
         return []
 
     normalized = sel.replace("，", ",").replace("；", ",").replace("、", ",")
@@ -198,10 +200,12 @@ def applySelection(
     for article in articles:
         idx = getattr(article, "_globalIndex", 0)
         if idx in nums:
-            article.status = STATUS_SELECTED
+            if article.status != STATUS_IMPORTED and not article.zoteroKey:
+                article.status = STATUS_SELECTED
             selected.append(article)
         else:
-            article.status = STATUS_PRESENTED
+            if article.status != STATUS_IMPORTED and not article.zoteroKey:
+                article.status = STATUS_PRESENTED
     return selected
 
 

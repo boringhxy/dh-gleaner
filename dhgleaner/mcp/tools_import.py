@@ -189,6 +189,16 @@ def importToZotero(
             report=result.report,
             **common,
         )
+    if result.localSaveError:
+        return failure(
+            "Zotero 处理已完成，但本地清单保存失败。请保留报告并检查目录权限；不要据此认为未写入。",
+            kind="local_save_failed",
+            imported=result.imported, skipped=result.skipped, failed=result.failed,
+            wroteNothing=False,
+            reportPath=str(result.reportPath) if result.reportPath else "",
+            report=result.report,
+            **common,
+        )
     return success(
         message=outcome.message,
         **common,

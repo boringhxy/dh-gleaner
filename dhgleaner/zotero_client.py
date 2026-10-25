@@ -5,13 +5,14 @@
 - 创建期刊文章条目（含完整 metadata）
 - 挂载 PDF 附件
 - 添加标签
-- 查重（标题匹配）
+- 查重（题名候选 + DOI/URL/书目身份核验）
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import re
 from typing import List, Optional
 
 from .models import Article
@@ -206,8 +207,39 @@ class ZoteroClient:
             currentKey = found
         return {"path": pathNames, "missing": missing, "resolvedKey": currentKey, "error": None}
 
+    @staticmethod
+    def _sameArticle(article: Article, data: dict) -> bool:
+        def doi(value):
+            return re.sub(r"^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", "", str(value or "").strip(), flags=re.I).lower()
+
+        incomingDoi, existingDoi = doi(article.doi), doi(data.get("DOI"))
+        if incomingDoi and existingDoi:
+            return incomingDoi == existingDoi
+        if article.articleUrl and data.get("url") == article.articleUrl:
+            return True
+        if normalizeTitle(data.get("title", "")) != normalizeTitle(article.title):
+            return False
+        journal = normalizeTitle(data.get("publicationTitle", ""))
+        incomingJournal = normalizeTitle(article.journal)
+        yearMatch = re.search(r"(?<!\d)(\d{4})(?!\d)", str(data.get("date", "")))
+        year = int(yearMatch.group(1)) if yearMatch else 0
+        if journal and incomingJournal and journal != incomingJournal:
+            return False
+        if year and article.year and year != article.year:
+            return False
+        authors = {
+            normalizeTitle(c.get("name") or (c.get("firstName", "") + c.get("lastName", "")))
+            for c in data.get("creators", []) if c.get("creatorType", "author") == "author"
+        } - {""}
+        incomingAuthors = {normalizeTitle(a) for a in article.authors} - {""}
+        if authors and incomingAuthors and not authors.intersection(incomingAuthors):
+            return False
+        return bool(year and year == article.year and (
+            (journal and journal == incomingJournal) or authors.intersection(incomingAuthors)
+        ))
+
     def checkDuplicate(self, article: Article) -> Optional[str]:
-        """按标题检索 Zotero，返回已存在条目的 key（无则 None）。
+        """按题名查候选，以 DOI 或书目信息确认身份，返回已存在条目的 key。
 
         用 `everything()` 翻页而不是只取首页：短标题或常见词可能命中很多条目，
         只取 limit 条会漏判，导致把已入库的文章重复导入。标题用 `normalizeTitle`
@@ -228,7 +260,7 @@ class ZoteroClient:
                 data = item.get("data", {})
                 if data.get("itemType") != "journalArticle":
                     continue
-                if normalizeTitle(data.get("title", "")) == target:
+                if self._sameArticle(article, data):
                     return item["key"]
         except Exception as e:
             log.warning("查重失败: %s", e)
@@ -375,7 +407,7 @@ class ZoteroClient:
             return {
                 "status": "failed",
                 "key": "",
-                "reason": f"与 Zotero 的连接中断，未能确认是否写入；重跑一次（若报「标题已存在」说明其实写成了）：{error.detail[:120]}",
+                "reason": f"与 Zotero 的连接中断，未能确认是否写入；重跑一次（若报「同一文献已存在」说明其实写成了）：{error.detail[:120]}",
             }
         if error.kind == "rejected":
             return {
@@ -396,7 +428,7 @@ class ZoteroClient:
         existing = self.checkDuplicate(article)
         if existing:
             log.info("跳过（已存在）: %s", article.title[:40])
-            return {"status": "skipped", "key": existing, "reason": "标题已存在"}
+            return {"status": "skipped", "key": existing, "reason": "同一文献已存在"}
 
         extraParts = []
         extraTags = []

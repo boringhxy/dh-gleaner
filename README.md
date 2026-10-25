@@ -62,7 +62,7 @@ pipx upgrade dh-gleaner
 
 装的是 git 源，若 pip 缓存导致没拉到最新提交，改用 `pipx install --force "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"` 强制重装；uv 对应 `uv tool upgrade dh-gleaner --reinstall`。
 
-装完先自检一次，它会自动建好数据目录并告诉你缺什么：
+装完先自检一次，它会告诉你缺什么；自检按现有目录权限估计可写性，不创建数据目录或探针文件：
 
 ```bash
 dhgleaner doctor
@@ -366,7 +366,7 @@ pipx install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
 
 ## 数据文件
 
-默认位置取决于安装方式：clone 后在项目根目录的 `data/` 下，用 pipx / uv 装的则在 `~/.dhgleaner/data/` 下。完整解析规则见文末「数据目录位置」。
+默认使用 `~/.dhgleaner` 作为数据根目录；从本工具源码根目录或可识别的旧数据目录启动时，会兼容使用当前目录。显式参数和环境变量优先。位置由启动目录及配置决定，与 pipx / uv 安装方式无直接对应；完整规则见「数据目录位置」。
 
 | 文件 | 作用 |
 |------|------|
@@ -420,8 +420,21 @@ pipx install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
 
 1. 命令行 `--data-dir /path/to/dir`
 2. 环境变量 `DHGLEANER_DATA_DIR=/path/to/dir`
-3. 当前工作目录若含 `config.json` 或 `data/`，就用当前目录（兼容旧用法）
+3. 当前工作目录有本工具源码，或可识别的旧配置/数据，才采用当前目录。配置需含 `journals` 列表和 `zotero` 对象；历史数据需是本工具的 `data/state.json` 或 `data/pending.json`。仅有普通 `data/` 文件夹不算。
 4. 兜底 `~/.dhgleaner`
+
+### 配置与数据的职责
+
+| 位置 | 用途 | 是否提交 |
+|---|---|---|
+| `dhgleaner/defaults/config.json` | 随程序发布的默认期刊和行为 | 是 |
+| `<数据根>/config.json` | 使用者覆盖默认行为的可选配置 | 通常留本地 |
+| `<数据根>/config.local.json` | 私有 Zotero 凭据 | 否，备份同样不提交 |
+| `<数据根>/data/pending.json` | 当前批次文章及捕获身份 | 否 |
+| `<数据根>/data/selection.json` | 当前批次筛选篮 | 否 |
+| `<数据根>/data/state.json` | 跨批次处理历史 | 否 |
+
+导入或跳过只更新处理状态，保留捕获时间、类型和备注，因此原 Excel 筛选表可用于分批导入或失败重试。已导入文章的状态和 Zotero key 不会因再次筛选或跳过剩余文章而清空。
 
 ## 抓取质量校验
 

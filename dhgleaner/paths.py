@@ -4,7 +4,7 @@
 
 1. `--data-dir` 命令行参数（单次生效）
 2. `DHGLEANER_DATA_DIR` 环境变量（永久生效）
-3. 遗留探测：当前工作目录下存在 `config.json` 或 `data/`，即视为项目根
+3. 遗留探测：当前目录有本工具源码，或可识别的配置/运行数据
 4. 兜底 `~/.dhgleaner`
 
 本模块**只读探测**，不迁移、不删除任何现有文件；所有产物路径都以数据目录为根，
@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import os
 from dataclasses import dataclass
 from importlib import resources
@@ -132,10 +133,29 @@ def resolveDataDir(cliDir: Optional[PathLike] = None) -> tuple[Path, str]:
         return Path(envValue.strip()).expanduser().resolve(), SOURCE_ENV
 
     cwd = Path.cwd()
-    if (cwd / "config.json").is_file() or (cwd / "data").is_dir():
+    if _isLegacyDataRoot(cwd):
         return cwd.resolve(), SOURCE_LEGACY
 
     return (Path.home() / DEFAULT_DIR_NAME), SOURCE_DEFAULT
+
+
+def _isLegacyDataRoot(directory: Path) -> bool:
+    if (directory / "dhgleaner" / "paths.py").is_file() and (directory / "pyproject.toml").is_file():
+        return True
+    for name in ("config.json", "data/state.json", "data/pending.json"):
+        try:
+            data = json.loads((directory / name).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        if name == "config.json" and isinstance(data.get("journals"), list) and isinstance(data.get("zotero"), dict):
+            return True
+        if name == "data/state.json" and isinstance(data.get("journals"), dict):
+            return True
+        if name == "data/pending.json" and isinstance(data.get("articles"), list) and "capturedAt" in data and "markdown" in data:
+            return True
+    return False
 
 
 _cached: Optional[Paths] = None

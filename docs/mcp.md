@@ -145,6 +145,8 @@ pipx install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
 
 只写本数据目录，**不写 Zotero**。
 
+抓取预览不写清单或 state；`run_doctor` 只读估计目录权限，不创建目录或探针。服务进程启动日志另行管理。
+
 ### `capture_issue(journal="", year=null, issue=null, volume=null, url="", selectAllJournals=false, dedupe=false, dryRun=true, limit=200)`
 
 抓取某刊某期的目录与摘要，或按 `url` 抓指定目录页。`journal` 支持别名（`dhr` / `szrw` / `zgszrw` / `tadh` / `tsgzz` / `tsglt`）。
@@ -200,7 +202,7 @@ pipx install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
 2. 把清单交给使用者确认。
 3. 确认后调 `import_to_zotero(selection="…", confirm=true, dryRun=false)`。
 
-返回 `imported`、`skipped`、`failed`、`reportPath`、`createdCollections`、`report`。预检中止时返回 `wroteNothing=true`、`imported=0`，且**不写任何本地文件**。
+返回 `imported`、`skipped`、`failed`、`reportPath`、`createdCollections`、`report`。远端处理后本地保存失败时返回 `failureKind=local_save_failed`，保留远端计数和报告，不声称未写入。预检中止时返回 `wroteNothing=true`、`imported=0`，且**不写任何本地文件**。
 
 ## 一次典型的完整对话
 

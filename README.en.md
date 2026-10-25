@@ -326,10 +326,10 @@ Two things bite in practice:
 
 Nearly every tool returns `dataDir`, `dataDirSource` and `configLocalPath`, so the client can confirm which directory it is reading and writing.
 
-The server exposes 14 tools:
+The server exposes 16 tools:
 
-- **Read-only (8)**: `list_journals`, `get_capture_status`, `list_pending_articles`, `get_article_abstract`, `search_pending_articles`, `preview_import`, `get_import_report`, `run_doctor`
-- **Local writes (5)**: `capture_issue`, `capture_channel`, `harvest_year`, `export_review_spreadsheet`, `mark_pending_skipped`
+- **Read-only (9)**: `list_journals`, `discover_latest`, `get_capture_status`, `list_pending_articles`, `get_article_abstract`, `search_pending_articles`, `preview_import`, `get_import_report`, `run_doctor`
+- **Local writes (6)**: `capture_issue`, `capture_channel`, `harvest_year`, `export_review_spreadsheet`, `mark_pending_skipped`, `record_issue_url`
 - **Zotero write (1)**: `import_to_zotero`
 
 `import_to_zotero` **refuses by default**. It writes only when both `confirm=true` and `dryRun=false` are supplied. Failures come back as structured results carrying a `failureKind` (`network`, `blocked`, `captcha`, `empty_parse`, `issue_mismatch`, `not_configured`, `invalid_input`, `no_pending`) so the client can decide what to do next.
@@ -338,7 +338,7 @@ Full parameters and return fields are documented in `docs/mcp.md`.
 
 ## Data files
 
-Where these live depends on how you installed the tool: under `data/` in the project root after a clone, or under `~/.dhgleaner/data/` for a pipx / uv install. See "Data directory resolution" at the end of this section for the full rule.
+The default data root is `~/.dhgleaner`. Starting from this tool's source root or a recognized legacy data directory reuses that directory. Explicit arguments and environment settings take priority; the installer does not determine the location. See "Data directory resolution" below.
 
 | File | Purpose |
 |------|---------|
@@ -392,8 +392,10 @@ Resolved in this order; the first match wins:
 
 1. `--data-dir /path/to/dir` on the command line
 2. `DHGLEANER_DATA_DIR=/path/to/dir` in the environment
-3. If the current working directory contains `config.json` or `data/`, use it (legacy layout)
+3. Reuse the working directory only if it contains dh-gleaner sources or recognizable legacy data: a config with `journals` and `zotero`, a tool state file with `journals`, or a pending file with `articles`, `capturedAt` and `markdown`. An unrelated `data/` folder is not sufficient.
 4. Fallback to `~/.dhgleaner`
+
+The packaged `dhgleaner/defaults/config.json` contains defaults; `<data root>/config.json` overrides behavior; `<data root>/config.local.json` contains private credentials. Credential backups are private too. `pending.json` holds the current batch, `selection.json` the basket, and `state.json` cross-batch history. Importing preserves capture metadata so existing Excel selections remain valid for retries.
 
 ## Capture quality checks
 

@@ -145,7 +145,8 @@ class CollectionPlanTests(unittest.TestCase):
 
 
 def _item(key: str, title: str, itemType: str = "journalArticle") -> dict:
-    return {"key": key, "data": {"itemType": itemType, "title": title}}
+    return {"key": key, "data": {"itemType": itemType, "title": title,
+                                  "publicationTitle": "数字人文研究", "date": "2026"}}
 
 
 def _article(title: str) -> Article:

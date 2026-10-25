@@ -340,7 +340,8 @@ class DiscoveryToolTests(unittest.TestCase):
         from dhgleaner.service import stateManager
 
         with tempDataDir():
-            with mock.patch.object(discovery, "fetchHtml", side_effect=_stubFetch):
+            with mock.patch.object(discovery, "fetchHtml", side_effect=_stubFetch), \
+                 mock.patch.object(discovery, "fetchJson", return_value=[]):
                 result = tools_read.discoverLatest(journal="数字人文")
             self.assertTrue(result["ok"])
             self.assertEqual(result["journals"][0]["frontier"]["label"], "2025年第4期")
@@ -354,7 +355,8 @@ class DiscoveryToolTests(unittest.TestCase):
             tools_capture.recordIssueUrl(
                 journal="数字人文", url="https://mp.weixin.qq.com/s/abc", source="wechat_toc"
             )
-            with mock.patch.object(discovery, "fetchHtml", side_effect=_stubFetch):
+            with mock.patch.object(discovery, "fetchHtml", side_effect=_stubFetch), \
+                 mock.patch.object(discovery, "fetchJson", return_value=[]):
                 result = tools_read.discoverLatest(journal="数字人文")
             item = result["journals"][0]
         self.assertEqual(item["frontier"]["label"], "2026年第3期")

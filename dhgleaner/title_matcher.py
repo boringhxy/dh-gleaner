@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 from typing import List
 
-from .models import STATUS_PRESENTED, STATUS_SELECTED, Article
+from .models import STATUS_IMPORTED, STATUS_PRESENTED, STATUS_SELECTED, Article
 
 
 @dataclass
@@ -139,7 +139,8 @@ def articlesFromTitleMatches(matches: List[TitleMatch], articles: List[Article])
     """按用户题名顺序返回选中文章。"""
     selectedIds = {id(match.candidates[0].article) for match in matches if match.status == "matched" and match.candidates}
     for article in articles:
-        article.status = STATUS_SELECTED if id(article) in selectedIds else STATUS_PRESENTED
+        if article.status != STATUS_IMPORTED and not article.zoteroKey:
+            article.status = STATUS_SELECTED if id(article) in selectedIds else STATUS_PRESENTED
     return [match.candidates[0].article for match in matches if match.status == "matched" and match.candidates]
 
 
