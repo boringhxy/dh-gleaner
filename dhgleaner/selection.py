@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Sequence
 
-from .models import STATUS_PRESENTED, STATUS_SELECTED, Article
+from .models import STATUS_IMPORTED, STATUS_PRESENTED, STATUS_SELECTED, Article
 from .paths import getPaths
 from .presenter import applySelection
 from .review_spreadsheet import SpreadsheetValidationError, loadSpreadsheetSelection
@@ -77,7 +77,8 @@ def readTitles(titles: str | None = None, titlesFile: str | None = None) -> list
 
 def resolveAll(articles: Sequence[Article]) -> SelectionOutcome:
     for article in articles:
-        article.status = STATUS_SELECTED
+        if article.status != STATUS_IMPORTED and not article.zoteroKey:
+            article.status = STATUS_SELECTED
     selected = list(articles)
     return SelectionOutcome(status=STATUS_OK, selected=selected, message=_byIndexMessage(len(selected)))
 
@@ -167,7 +168,8 @@ def resolveBySpreadsheet(
     if not selected:
         return SelectionOutcome(status=STATUS_EMPTY, message="筛选表中没有标记为“是”的文章，未导入 Zotero。")
     for article in selected:
-        article.status = STATUS_SELECTED
+        if article.status != STATUS_IMPORTED and not article.zoteroKey:
+            article.status = STATUS_SELECTED
     return SelectionOutcome(
         status=STATUS_OK,
         selected=selected,
@@ -177,8 +179,11 @@ def resolveBySpreadsheet(
 
 def markAllPresentedAsSkipped(articles: Sequence[Article], state: StateManager) -> int:
     """把当前待导入文章全部标记为 skipped，并结清已全部处理完的期次。"""
+    count = 0
     with state.batch():
         for article in articles:
+            if article.status == STATUS_IMPORTED or article.zoteroKey or state.isArticleProcessed(article.journal, article.articleKey()):
+                continue
             state.markArticleProcessed(
                 article.journal,
                 article.articleKey(),
@@ -187,6 +192,7 @@ def markAllPresentedAsSkipped(articles: Sequence[Article], state: StateManager) 
                 status="skipped",
             )
             article.status = STATUS_PRESENTED
+            count += 1
 
         seen = set()
         for article in articles:
@@ -198,7 +204,7 @@ def markAllPresentedAsSkipped(articles: Sequence[Article], state: StateManager) 
             issueArticles = [a for a in articles if a.journal == article.journal and a.issueInfo().key() == issue.key()]
             if issueFullySeen(issueArticles) and all(state.isArticleProcessed(a.journal, a.articleKey()) for a in issueArticles):
                 state.markIssueProcessed(article.journal, issue)
-    return len(articles)
+    return count
 
 
 def resolveSkipAll(articles: Sequence[Article], state: StateManager) -> SelectionOutcome:

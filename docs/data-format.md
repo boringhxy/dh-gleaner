@@ -81,8 +81,10 @@
 - `review` 读取 `markdown` 渲染清单。
 - `abstract` 按 `_globalIndex` 查 `articles`。
 - `import --selection` 按 `_globalIndex` 选择文章。
-- `captureType` 决定清单的解释方式（期次 / 栏目 / 人工校正）。
+- `captureType` 决定清单的解释方式（期次 / 栏目 / 散篇 / 人工校正）。
 - `note` 记录栏目来源、人工校正、作者摘要缺失等情况。
+
+导入与跳过不重新生成 `capturedAt`、`captureType`、`note`；只有新抓取才建立新批次。
 
 **字段稳定性**：这是对外可见的数据格式，下游可能有依赖。任何字段增删或语义变化都应在 PR 描述里明确指出。
 
@@ -92,18 +94,21 @@
 
 ```json
 {
-  "articles": {
-    "期刊名|文章唯一键": {
-      "title": "文章题名",
-      "status": "imported/skipped/failed",
-      "zoteroKey": "Zotero item key",
-      "updatedAt": "ISO 时间"
-    }
-  },
-  "issues": {
-    "期刊名|期次键": {
-      "status": "processed",
-      "updatedAt": "ISO 时间"
+  "journals": {
+    "数字人文研究": {
+      "lastIssue": {"year": 2026, "volume": 6, "issue": 2, "publishDate": "", "key": "Y2026/V6/I2"},
+      "lastCheckAt": "ISO 时间",
+      "latestKnown": null,
+      "manualIssueUrls": {},
+      "processedArticles": ["文章URL或备用唯一键"],
+      "processedArticleMeta": {
+        "文章URL或备用唯一键": {
+          "title": "文章题名",
+          "status": "imported",
+          "zoteroKey": "条目 key",
+          "date": "ISO 时间"
+        }
+      }
     }
   }
 }

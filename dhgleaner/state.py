@@ -42,8 +42,9 @@ def issueFullySeen(issueArticles: Iterable[Article]) -> bool:
 
 
 class StateManager:
-    def __init__(self, stateFile: str):
+    def __init__(self, stateFile: str, *, readOnly: bool = False):
         self.stateFile = stateFile
+        self.readOnly = readOnly
         self.state: dict = {"journals": {}}
         self._deferDepth = 0
         self._pendingWrite = False
@@ -69,6 +70,9 @@ class StateManager:
 
     def _quarantineCorrupt(self, error: Exception):
         """把损坏的 state.json 另存为 `.corrupt-<时间戳>`，绝不静默丢弃历史。"""
+        if self.readOnly:
+            log.warning("只读模式：state.json 损坏，保留原文件不迁移: %s", error)
+            return
         backup = f"{self.stateFile}.corrupt-{datetime.now(_TZ).strftime('%Y%m%d-%H%M%S')}"
         try:
             os.replace(self.stateFile, backup)
@@ -99,6 +103,8 @@ class StateManager:
             raise
 
     def _save(self):
+        if self.readOnly:
+            return
         if self._deferDepth:
             self._pendingWrite = True
             return

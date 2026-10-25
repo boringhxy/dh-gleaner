@@ -38,8 +38,8 @@ from .payloads import capturePayload, dataDirInfo
 _DRY_RUN_NOTE = "dryRun=True：本次没有写盘。确认无误后用 dryRun=False 落盘。"
 
 
-def _finishCapture(outcome, dryRun: bool, hint: str = "") -> dict:
-    payload = capturePayload(outcome)
+def _finishCapture(outcome, dryRun: bool, hint: str = "", limit: int = 200) -> dict:
+    payload = capturePayload(outcome, articleLimit=max(0, limit))
     if outcome.status == "failed":
         reason = outcome.reason or "未捕获到文章，旧筛选清单未被覆盖。"
         kind = classifyFailure(reason) if outcome.reason else "empty_parse"
@@ -106,6 +106,7 @@ def captureIssue(
         outcome,
         dryRun,
         hint="可用 url 参数直接指定该期的目录页地址。",
+        limit=limit,
     )
 
 
@@ -151,6 +152,7 @@ def captureChannel(
         outcome,
         dryRun,
         hint=f"可用 url 参数直接指定《{journalName}》「{channelName}」栏目的目录页地址。",
+        limit=limit,
     )
 
 
@@ -202,6 +204,7 @@ def harvestYear(
         outcome,
         dryRun,
         hint="该刊可能不支持按年 harvest，或过刊库地址已变更；可用 capture_issue 抓当期。",
+        limit=limit,
     )
 
 
@@ -248,7 +251,10 @@ def markPendingSkipped(confirm: bool = False) -> dict:
         return failure("当前没有待导入文章。", kind="no_pending")
 
     outcome = resolveSkipAll(articles, stateManager(cfg))
-    savePending(markdown, articles)
+    try:
+        savePending(markdown, articles, preserveMetadata=True)
+    except OSError as error:
+        return failure(f"跳过记录已保存到 state，但待筛清单更新失败：{error}", kind="local_save_failed")
     return success(
         **dataDirInfo(),
         skippedCount=outcome.skippedCount,

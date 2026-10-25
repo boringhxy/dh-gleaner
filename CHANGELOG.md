@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+### 2026-10-25 初版可靠性修复
+
+- 凭据备份加入精确 Git 忽略规则，备份使用微秒时间戳并收紧权限，公开示例模板仍可提交。
+- pending/review 暂存完整内容后替换；提交失败回滚 review，不再报告保存成功。捕获质量与本地保存结果分别表达。
+- 状态更新保留捕获时间、来源类型和备注，Excel 筛选表支持失败重试；所有筛选路径保留已导入状态，跳过只处理剩余项。
+- Zotero 判重改为 DOI / URL 身份及题名、期刊、年份、作者核验，同名不同 DOI 不再被漏导。
+- Zotero 成功后本地历史或清单保存失败时，保留远端计数和 key，独立返回 local_save_failed。
+- 预览抓取不写 state，损坏历史在只读模式下不迁移；自检不创建目录或探针。导入预检中止不创建 PDF 临时目录。
+- 数据目录兼容探测要求本工具源码或可识别数据，不再劫持普通 data 文件夹；同步配置层级、状态格式、MCP 16 工具和退出码文档。
+- 发现层测试补齐 JSON 请求桩，新增离线回归测试；MCP 抓取 limit 生效。
+
+
 ### 新增
 
 - **散篇 harvest 流程**：在「按期次」「按栏目」之外新增第三种采集模式，面向没有常设数字人文栏目、DH 内容散落在各栏目且当期目录页不稳定的图情/信息刊。按年枚举全年全目录 → DH 关键词筛 → 落 `pending.json`/`review.md`，`screen`/`import` 下游照常可用。命令行 `dhgleaner harvest --year YYYY [--journal X] [--all-catalog] [--no-abstracts] [--dedupe] [--dry-run]`，MCP 工具 `harvest_year`（默认 `dryRun=true`）。

@@ -63,8 +63,8 @@ def logPath(cfg: dict) -> Path:
     return resolveRuntimePath(cfg.get("logFile"), getPaths().defaultLogFile)
 
 
-def stateManager(cfg: dict) -> StateManager:
-    return StateManager(str(statePath(cfg)))
+def stateManager(cfg: dict, *, readOnly: bool = False) -> StateManager:
+    return StateManager(str(statePath(cfg)), readOnly=readOnly)
 
 
 def saveCredentials(libraryId: str, apiKey: str) -> tuple[bool, str]:
@@ -80,9 +80,11 @@ def saveCredentials(libraryId: str, apiKey: str) -> tuple[bool, str]:
         path.parent.mkdir(parents=True, exist_ok=True)
         if path.exists():
             backup = path.with_name(
-                f"{path.stem}.bak-{datetime.now(_TZ).strftime('%Y%m%d-%H%M%S')}{path.suffix}"
+                f"{path.stem}.bak-{datetime.now(_TZ).strftime('%Y%m%d-%H%M%S-%f')}{path.suffix}"
             )
             shutil.copy2(path, backup)
+            with contextlib.suppress(OSError):
+                os.chmod(backup, 0o600)
         payload = {"zotero": {"webLibraryId": libraryId.strip(), "webApiKey": apiKey.strip()}}
         fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".config-local-", suffix=".tmp")
         try:
@@ -110,7 +112,7 @@ def backupExistingPendingFiles() -> list[Path]:
     existing = [path for path in (getPaths().pending, getPaths().review) if path.exists()]
     if not existing:
         return []
-    timestamp = datetime.now(_TZ).strftime("%Y%m%d-%H%M%S")
+    timestamp = datetime.now(_TZ).strftime("%Y%m%d-%H%M%S-%f")
     getPaths().backupDir.mkdir(parents=True, exist_ok=True)
     backups = []
     for path in existing:
@@ -126,6 +128,7 @@ def savePending(
     backup: bool = False,
     note: str = "",
     captureType: str = "issue",
+    preserveMetadata: bool = False,
 ) -> list[Path]:
     """保存捕获/导入结果供后续阶段使用，返回本次备份文件列表。"""
     getPaths().pending.parent.mkdir(parents=True, exist_ok=True)
@@ -137,16 +140,62 @@ def savePending(
         "markdown": markdown,
         "articles": [],
     }
+    if preserveMetadata:
+        previous = loadPendingData()
+        for key in ("capturedAt", "captureType", "note"):
+            if key in previous:
+                data[key] = previous[key]
     for article in articles:
         item = article.toDict()
         item["_globalIndex"] = getattr(article, "_globalIndex", 0)
         data["articles"].append(item)
-    try:
-        getPaths().pending.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-        getPaths().review.write_text(markdown, encoding="utf-8")
-    except OSError as e:
-        log.error("pending.json 不可写，未保存本次状态: %s (%s)", getPaths().pending, e)
+    _savePendingArtifacts(json.dumps(data, ensure_ascii=False, indent=2), markdown)
     return backups
+
+
+def _stageArtifact(path: Path, content: bytes) -> str:
+    """在目标文件旁暂存完整内容；提交前的任何写入失败都不碰旧文件。"""
+    fd, temporary = tempfile.mkstemp(dir=path.parent, prefix=".pending-", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        return temporary
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.remove(temporary)
+        raise
+
+
+def _savePendingArtifacts(payload: str, markdown: str) -> None:
+    """pending 为权威数据，最后提交；提交失败时还原已更新的 review。"""
+    paths = getPaths()
+    staged: list[str] = []
+    reviewCommitted = False
+    rollback = None
+    try:
+        if paths.review.exists():
+            rollback = _stageArtifact(paths.review, paths.review.read_bytes())
+            staged.append(rollback)
+        pending = _stageArtifact(paths.pending, payload.encode("utf-8"))
+        staged.append(pending)
+        review = _stageArtifact(paths.review, markdown.encode("utf-8"))
+        staged.append(review)
+        os.replace(review, paths.review)
+        reviewCommitted = True
+        os.replace(pending, paths.pending)
+    except OSError:
+        if reviewCommitted:
+            if rollback:
+                os.replace(rollback, paths.review)
+            else:
+                paths.review.unlink(missing_ok=True)
+        raise
+    finally:
+        for temporary in staged:
+            with contextlib.suppress(OSError):
+                os.remove(temporary)
 
 
 def saveCaptureStatus(status: str, message: str, results=None, failures=None) -> Path | None:
@@ -286,9 +335,15 @@ def _finishCapture(
         return outcome
 
     if outcome.articleCount > 0 and outcome.quality == "success":
-        outcome.backups = savePending(
-            outcome.markdown, outcome.articles, backup=True, note=note, captureType=captureType
-        )
+        try:
+            outcome.backups = savePending(
+                outcome.markdown, outcome.articles, backup=True, note=note, captureType=captureType
+            )
+        except OSError as error:
+            outcome.status = "failed"
+            outcome.reason = f"清单保存失败，未提交新的待筛批次：{error}"
+            saveCaptureStatus("failed", outcome.reason, outcome.collected, outcome.failures)
+            return outcome
         saveCaptureStatus("success", f"共捕获 {outcome.articleCount} 篇文章", outcome.collected, outcome.failures)
         outcome.wrotePending = True
     elif outcome.articleCount > 0:
@@ -320,7 +375,7 @@ def captureIssue(
     dryRun: bool = False,
 ) -> CaptureOutcome:
     """按年期或目录页 URL 抓取。journalName 为空串表示抓配置中的全部期刊。"""
-    state = stateManager(cfg)
+    state = stateManager(cfg, readOnly=dryRun)
     results, failures = captureAll(
         cfg["journals"],
         cfg["http"],
@@ -360,7 +415,7 @@ def captureJournalChannel(
     dryRun: bool = False,
 ) -> CaptureOutcome:
     """按栏目抓取跨期文章清单。"""
-    state = stateManager(cfg)
+    state = stateManager(cfg, readOnly=dryRun)
     issue, articles, failure = captureChannel(
         journalConfig,
         cfg["http"],
@@ -408,7 +463,7 @@ def captureHarvest(
     results, failures = harvestAll(
         cfg["journals"],
         cfg["http"],
-        stateManager(cfg),
+        stateManager(cfg, readOnly=dryRun),
         year=year,
         journalName=journalName,
         withAbstracts=withAbstracts,
@@ -455,7 +510,7 @@ def discoverLatest(
     return discoverAll(
         cfg,
         journalName=journalName,
-        state=stateManager(cfg),
+        state=stateManager(cfg, readOnly=not record),
         record=record,
     )
 
@@ -482,6 +537,7 @@ class ImportOutcome:
     aborted: bool = False
     abortReason: str = ""
     createdCollections: List[str] = field(default_factory=list)
+    localSaveError: str = ""
 
 
 def previewArticles(selected: Sequence[Article]) -> list[dict]:
@@ -525,13 +581,18 @@ def runImport(
     )
     report = summary.report
     reportPath = None
+    localSaveError = summary.localSaveError
     # 预检中止（没有可导入文章 / Zotero 连不上 / Collection 缺失）时一个字都不落盘：
     # 既不改 pending.json、也不重写 review.md。历史教训：早期实现无条件 savePending，
     # 于是「凭据没配好」这种纯失败场景也会刷新 capturedAt，并把已标 presented 的文章
     # 打回 selected，使已经看过（甚至已经导入）的文章重新冒回待筛清单。
     # 诊断信息不会丢——`report` 字段本身包含中止原因，会上报给调用方。
     if writeArtifacts and not summary.aborted:
-        savePending(markdown, articles)
+        try:
+            savePending(markdown, articles, preserveMetadata=True)
+        except OSError as error:
+            localSaveError = "; ".join(filter(None, (localSaveError, str(error))))
+            report += f"\n\n⚠️ 本地清单保存失败：{error}。上面的 Zotero 写入结果仍然有效，请勿据此认为未写入。"
         reportPath = getPaths().importReport
         if writeTextArtifact(reportPath, report) is not None:
             reportPath = None
@@ -545,6 +606,7 @@ def runImport(
         aborted=summary.aborted,
         abortReason=summary.abortReason,
         createdCollections=list(summary.createdCollections),
+        localSaveError=localSaveError,
     )
 
 
@@ -556,7 +618,7 @@ def skipAllPending(cfg: dict) -> tuple[int, str, List[Article]]:
     if not articles:
         return 0, markdown, []
     count = markAllPresentedAsSkipped(articles, stateManager(cfg))
-    savePending(markdown, articles)
+    savePending(markdown, articles, preserveMetadata=True)
     return count, markdown, articles
 
 
@@ -589,14 +651,12 @@ def dependencyStatus() -> list[tuple[str, bool]]:
 
 
 def canWriteDir(path: Path) -> tuple[bool, str]:
-    try:
-        path.mkdir(parents=True, exist_ok=True)
-        marker = path / ".agent_write_test"
-        marker.write_text("ok", encoding="utf-8")
-        marker.unlink(missing_ok=True)
-        return True, str(path)
-    except Exception as e:
-        return False, f"{path} ({e})"
+    """只读检查现有目录或最近祖先的权限，不创建目录/探针文件。"""
+    ancestor = path
+    while not ancestor.exists() and ancestor != ancestor.parent:
+        ancestor = ancestor.parent
+    ok = ancestor.is_dir() and os.access(ancestor, os.W_OK | os.X_OK)
+    return ok, f"{path}（按现有目录权限估计；实际写入仍可能失败）"
 
 
 def collectDoctorChecks(cfg: dict, *, checkZotero: bool = False, checkNetwork: bool = False) -> DoctorReport:

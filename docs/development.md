@@ -56,7 +56,7 @@ ruff check .
 
 - state.json 原子写入与损坏隔离（不静默清空历史）。
 - 筛选篮文件容错（脏 JSON 降级为空篮而非崩溃）。
-- Zotero 查重翻页与归一化比较。
+- Zotero 查重翻页，DOI / 原文 URL 身份识别，以及同名时的期刊、年份与作者核验。
 - 上手命令 init / init-collections（默认只预览，`--yes` 才写 Zotero）与凭据落盘。
 - 四种当期解析器的样例解析（journy3 / cnki_cbpt / magtech / generic_html）。
 - 散篇 harvest：关键词双表打标（数字人文任一命中 / 历史学+AI 共现 / 陷阱词排除 / 英文缩写大小写敏感）、前置条目过滤、`founder` API 字段映射、`journalx` 列表去重、`magtech` 的 `lunwen`/`dqml` 皮肤识别、`harvestJournal`/`harvestAll` 的 dhOnly 与轮转选择（`tests/test_harvest.py`，全部离线桩，不发网络请求）。

@@ -37,7 +37,7 @@ def forceUtf8(*streams) -> None:
             stream.reconfigure(encoding="utf-8")
 
 
-def setupLogging(logFile: str, stream: IO[str] | None = None, level: int = logging.INFO) -> logging.Logger:
+def setupLogging(logFile: str, stream: IO[str] | None = None, level: int = logging.INFO, *, writeFile: bool = True) -> logging.Logger:
     """配置根日志：文件 + 控制台（默认 stderr）。
 
     日志文件不可写时降级为「仅控制台」，不阻断主流程。
@@ -46,12 +46,13 @@ def setupLogging(logFile: str, stream: IO[str] | None = None, level: int = loggi
     forceUtf8(console)
     handlers: list[logging.Handler] = [logging.StreamHandler(console)]
 
-    logPath = resolveRuntimePath(logFile, getPaths().defaultLogFile)
-    try:
-        logPath.parent.mkdir(parents=True, exist_ok=True)
-        handlers.insert(0, logging.FileHandler(logPath, encoding="utf-8"))
-    except OSError as e:
-        print(f"日志文件不可写，仅输出到终端: {logPath} ({e})", file=sys.stderr)
+    if writeFile:
+        logPath = resolveRuntimePath(logFile, getPaths().defaultLogFile)
+        try:
+            logPath.parent.mkdir(parents=True, exist_ok=True)
+            handlers.insert(0, logging.FileHandler(logPath, encoding="utf-8"))
+        except OSError as e:
+            print(f"日志文件不可写，仅输出到终端: {logPath} ({e})", file=sys.stderr)
 
     root = logging.getLogger()
     root.handlers.clear()

@@ -12,6 +12,8 @@ dist/
 
 # ---- 本地凭据（务必精确匹配，不可写成 config.local.*，否则会连模板一起忽略）----
 config.local.json
+config.local.bak-*.json
+.config-local-*.tmp
 
 # ---- 抓取产物与运行现场 ----
 data/

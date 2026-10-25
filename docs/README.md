@@ -9,7 +9,7 @@
 | [sources.md](sources.md) | 已支持的期刊、六种解析器、新增期刊的步骤 |
 | [quality-and-safety.md](quality-and-safety.md) | 抓取质量校验规则、旧清单保护、安全与合规边界 |
 | [zotero.md](zotero.md) | Zotero 集成：Collection 策略、字段映射、PDF 附件、错误处理 |
-| [mcp.md](mcp.md) | MCP 工具参考：14 个工具的参数与返回结构 |
+| [mcp.md](mcp.md) | MCP 工具参考：16 个工具的参数与返回结构 |
 | [development.md](development.md) | 开发环境、测试要求、冒烟测试与发布前检查 |
 
 根目录的 [README](../README.md) 讲「怎么用」，本目录讲「为什么这样设计、出问题看哪里」。

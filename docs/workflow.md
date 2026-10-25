@@ -139,4 +139,6 @@ dhgleaner screen --import
 
 ## 状态与退出码
 
-抓取失败目前仍返回退出码 0，脚本若要判断成败，请读取 `data/last_capture_status.json` 的 `status` 字段（`success` / `suspect` / `failed`）。这一点属于已知限制，见 [CHANGELOG](../CHANGELOG.md)。
+`capture`、`capture-channel`、`harvest` 返回 0（成功）、1（失败）、3（可疑）；参数语法错误为 2。状态详情见 `data/last_capture_status.json`。预览不改清单或 state，成功预览也不会声称已保存。
+
+导入后的状态更新保留原捕获批次身份。若 Zotero 已处理、但本地历史或清单保存失败，报告仍保留远端成功数量和 key，并单独提示本地错误；不要把本地错误当成远端未写入。

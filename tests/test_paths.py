@@ -27,7 +27,7 @@ class ResolveDataDirTests(unittest.TestCase):
 
     def testLegacyDetectsProjectRoot(self):
         with tempfile.TemporaryDirectory() as tmp:
-            (Path(tmp) / "config.json").write_text("{}", encoding="utf-8")
+            (Path(tmp) / "config.json").write_text('{"journals": [], "zotero": {}}', encoding="utf-8")
             with mock.patch.dict(os.environ, {paths.ENV_DATA_DIR: ""}):
                 with mock.patch("pathlib.Path.cwd", return_value=Path(tmp)):
                     directory, source = paths.resolveDataDir()
@@ -37,6 +37,7 @@ class ResolveDataDirTests(unittest.TestCase):
     def testLegacyDetectsDataDir(self):
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / "data").mkdir()
+            (Path(tmp) / "data" / "state.json").write_text('{"journals": {}}', encoding="utf-8")
             with mock.patch.dict(os.environ, {paths.ENV_DATA_DIR: ""}):
                 with mock.patch("pathlib.Path.cwd", return_value=Path(tmp)):
                     _, source = paths.resolveDataDir()

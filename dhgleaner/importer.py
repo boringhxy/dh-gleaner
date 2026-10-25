@@ -36,6 +36,7 @@ class ImportSummary:
     aborted: bool = False
     abortReason: str = ""
     createdCollections: List[str] = field(default_factory=list)
+    localSaveError: str = ""
 
     @property
     def wroteAnything(self) -> bool:
@@ -94,7 +95,6 @@ def importArticlesDetailed(
 ) -> ImportSummary:
     """导入已确认的文章到 Zotero，返回结构化结果 + Markdown 报告。"""
     journalConfigs = journalConfigs or {}
-    os.makedirs(tempDir, exist_ok=True)
     now = datetime.now(_TZ).strftime("%Y-%m-%d %H:%M")
 
     lines = [f"# Zotero 导入报告 — {now}\n"]
@@ -168,6 +168,7 @@ def importArticlesDetailed(
     skipped = 0
     failed = 0
     details = []
+    localSaveErrors: List[str] = []
 
     for i, article in enumerate(articles, 1):
         log.info("[%d/%d] 导入: %s", i, total, article.title[:40])
@@ -190,6 +191,7 @@ def importArticlesDetailed(
             safeName = f"{article.journal}_{article.year}_{article.issue}_{article.startPage or 'np'}.pdf"
             pdfPath = os.path.join(tempDir, safeName)
             try:
+                os.makedirs(tempDir, exist_ok=True)
                 downloadFile(
                     article.pdfUrl,
                     pdfPath,
@@ -235,7 +237,10 @@ def importArticlesDetailed(
         if status == "imported":
             article.status = STATUS_IMPORTED
             article.zoteroKey = zotKey
-            state.markArticleProcessed(article.journal, article.articleKey(), zotKey, article.title, status="imported")
+            try:
+                state.markArticleProcessed(article.journal, article.articleKey(), zotKey, article.title, status="imported")
+            except OSError as error:
+                localSaveErrors.append(f"state.json 保存失败：{error}")
             success += 1
             if result.get("pdfAttached"):
                 pdfHandling = "PDF 已挂载"
@@ -250,7 +255,10 @@ def importArticlesDetailed(
         elif status == "skipped":
             article.status = STATUS_IMPORTED
             article.zoteroKey = zotKey
-            state.markArticleProcessed(article.journal, article.articleKey(), zotKey, article.title, status="skipped")
+            try:
+                state.markArticleProcessed(article.journal, article.articleKey(), zotKey, article.title, status="skipped")
+            except OSError as error:
+                localSaveErrors.append(f"state.json 保存失败：{error}")
             skipped += 1
             details.append((article, "skipped", zotKey, reason, pdfHandling))
         else:
@@ -265,7 +273,10 @@ def importArticlesDetailed(
             except OSError:
                 pass
 
-    _markCompleteIssues(allPendingArticles or articles, state)
+    try:
+        _markCompleteIssues(allPendingArticles or articles, state)
+    except OSError as error:
+        localSaveErrors.append(f"state.json 期次状态保存失败：{error}")
 
     lines.append("## 导入汇总")
     lines.append(f"- 待导入: {total} 篇")
@@ -285,6 +296,10 @@ def importArticlesDetailed(
             f"{icon} {statusText} | {_escapeCell(key or '—')} | {_escapeCell(pdfHandling)} | {_escapeCell(reason)} |"
         )
 
+    localSaveError = "; ".join(dict.fromkeys(localSaveErrors))
+    if localSaveError:
+        lines.append(f"\n⚠️ 本地历史保存失败：{localSaveError}。上述 Zotero 结果仍然有效，请保留报告中的条目 key。")
+
     return ImportSummary(
         report="\n".join(lines),
         attempted=total,
@@ -292,6 +307,7 @@ def importArticlesDetailed(
         skipped=skipped,
         failed=failed,
         createdCollections=list(getattr(zotero, "createdCollections", []) or []),
+        localSaveError=localSaveError,
     )
 
 

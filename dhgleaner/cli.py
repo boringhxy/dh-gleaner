@@ -417,6 +417,9 @@ def cmdHarvest(args, cfg):
     scope = f"《{journalName}》" if journalName else "全部散篇期刊"
     if outcome.status == "success":
         kept = "全目录" if args.all_catalog else "DH 命中文章"
+        if args.dry_run:
+            print(f"\n--- 预览：{year} 年 {scope}，保留{kept} {outcome.articleCount} 篇；未写入清单或 state.json ---")
+            return _captureExitCode(outcome)
         print(f"\n--- {year} 年 {scope} harvest 完成：保留{kept} {outcome.articleCount} 篇，筛选清单已保存到 {paths.review} ---")
         if outcome.backups:
             print(f"已自动备份旧筛选数据: {'；'.join(str(path) for path in outcome.backups)}")
@@ -653,7 +656,8 @@ def cmdImport(args, cfg):
 
     if outcome.matchReport:
         print(outcome.matchReport)
-        saveTextArtifact(getPaths().titleMatchReport, outcome.matchReport, "题名匹配报告")
+        if not getattr(args, "dry_run", False):
+            saveTextArtifact(getPaths().titleMatchReport, outcome.matchReport, "题名匹配报告")
 
     if outcome.status == STATUS_NEEDS_CONFIRM:
         print(f"\n{outcome.message}请修正题名，或改用 --selection 指定确认后的编号。")
@@ -679,7 +683,7 @@ def cmdImport(args, cfg):
         return
     if outcome.status == STATUS_SKIP_ALL:
         marked = resolveSkipAll(articles, stateManager(cfg))
-        savePending(markdown, articles)
+        savePending(markdown, articles, preserveMetadata=True)
         print(f"{marked.message}，未导入 Zotero。")
         return
     if outcome.status in (STATUS_EMPTY, STATUS_INVALID):
@@ -797,7 +801,10 @@ def main():
 
     setDataDir(getattr(args, "data_dir", None))
     cfg = loadConfig()
-    setupLogging(cfg.get("logFile", "logs/capture.log"))
+    readOnlyCommand = args.command in {"doctor", "review", "abstract"} or bool(getattr(args, "dry_run", False))
+    if args.command == "discover" and args.no_record and not args.record_url:
+        readOnlyCommand = True
+    setupLogging(cfg.get("logFile", "logs/capture.log"), writeFile=not readOnlyCommand)
 
     handlers = {
         "capture": cmdCapture,
@@ -813,7 +820,10 @@ def main():
         "init": cmdInit,
         "init-collections": cmdInitCollections,
     }
-    exitCode = handlers[args.command](args, cfg)
+    try:
+        exitCode = handlers[args.command](args, cfg)
+    except OSError as error:
+        _fail(f"本地文件操作失败：{error}；请检查数据目录权限和剩余空间。")
     if exitCode:
         # 用 SystemExit 而不是 return：`dhgleaner`、`python -m dhgleaner`、
         # `python main.py` 三个入口都是直接调 main()，return 值会被丢掉。
