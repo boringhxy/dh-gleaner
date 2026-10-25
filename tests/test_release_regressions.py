@@ -39,7 +39,7 @@ class ReleasePersistenceTests(unittest.TestCase):
             self.assertEqual(len(backups), 1)
             repo = Path(__file__).resolve().parents[1]
             result = subprocess.run(["git", "check-ignore", "--no-index", backups[0].name],
-                                    cwd=repo, capture_output=True, text=True)
+                                    cwd=repo, capture_output=True, text=True, encoding="utf-8")
             self.assertEqual(result.returncode, 0, "credential backups must never be staged")
 
     def testFailedPendingCommitIsNotReportedAsSuccess(self):
@@ -62,7 +62,7 @@ class ReleasePersistenceTests(unittest.TestCase):
             self.assertEqual(result.status, "failed")
             self.assertFalse(result.wrotePending)
             self.assertEqual(pending.read_bytes(), old)
-            self.assertEqual(paths.getPaths().review.read_text(), "OLD")
+            self.assertEqual(paths.getPaths().review.read_text(encoding="utf-8"), "OLD")
             self.assertEqual(service.loadCaptureStatus()["status"], "failed")
 
     def testReviewWriteFailureKeepsBothOldArtifacts(self):
@@ -80,16 +80,16 @@ class ReleasePersistenceTests(unittest.TestCase):
             with patch("os.replace", side_effect=denyReview), self.assertRaises(OSError):
                 service.savePending("NEW", [article(2)])
             self.assertEqual(pending.read_bytes(), before)
-            self.assertEqual(paths.getPaths().review.read_text(), "OLD")
+            self.assertEqual(paths.getPaths().review.read_text(encoding="utf-8"), "OLD")
 
     def testImportRetryKeepsWorkbookAndCaptureIdentity(self):
         with tempfile.TemporaryDirectory() as tmp, paths.useDataDir(tmp):
             item = article()
             service.savePending("MD", [item], captureType="harvest", note="annual harvest")
             pending = paths.getPaths().pending
-            data = json.loads(pending.read_text())
+            data = json.loads(pending.read_text(encoding="utf-8"))
             data["capturedAt"] = "2000-01-01T00:00:00+08:00"
-            pending.write_text(json.dumps(data))
+            pending.write_text(json.dumps(data), encoding="utf-8")
             workbook = exportReviewSpreadsheet(Path(tmp) / "review.xlsx", [item], data, [1])
             summary = ImportSummary(report="failed remote write", attempted=1, failed=1)
             with patch("dhgleaner.service.importArticlesDetailed", return_value=summary):
@@ -170,17 +170,17 @@ class ReadOnlyCaptureTests(unittest.TestCase):
     def testCliDoctorDoesNotCreateLogOrDataDirectory(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = subprocess.run([sys.executable, "-B", "-m", "dhgleaner", "doctor", "--data-dir", tmp],
-                                    capture_output=True, text=True)
+                                    capture_output=True, text=True, encoding="utf-8")
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(list(Path(tmp).rglob("*")), [])
 
     def testReadOnlyStateDoesNotQuarantineCorruptFile(self):
         with tempfile.TemporaryDirectory() as tmp:
             stateFile = Path(tmp) / "state.json"
-            stateFile.write_text("broken json")
+            stateFile.write_text("broken json", encoding="utf-8")
             state = StateManager(str(stateFile), readOnly=True)
             state.updateLastCheck("测试刊")
-            self.assertEqual(stateFile.read_text(), "broken json")
+            self.assertEqual(stateFile.read_text(encoding="utf-8"), "broken json")
             self.assertEqual(len(list(Path(tmp).iterdir())), 1)
 
     def testDryRunHarvestDoesNotCreateState(self):
@@ -284,7 +284,7 @@ class DirectoryOwnershipTests(unittest.TestCase):
 
     def testUnrelatedConfigDoesNotSelectLegacyMode(self):
         with tempfile.TemporaryDirectory() as tmp:
-            (Path(tmp) / "config.json").write_text('{"theme":"dark"}')
+            (Path(tmp) / "config.json").write_text('{"theme":"dark"}', encoding="utf-8")
             with patch.dict(os.environ, {paths.ENV_DATA_DIR: ""}), patch("pathlib.Path.cwd", return_value=Path(tmp)):
                 _, source = paths.resolveDataDir()
             self.assertEqual(source, paths.SOURCE_DEFAULT)
