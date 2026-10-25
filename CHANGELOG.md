@@ -16,6 +16,8 @@
 - 离线测试 `tests/test_harvest.py`（关键词打标、前置条目过滤、三皮肤解析、harvest 过滤，全部用桩不发网络请求）。
 - **抓取命令按质量返回退出码**：`capture` / `capture-channel` / `harvest` 成功 0、`failed` 1、`suspect` 3。此前无论抓到什么都是 0，cron 或 CI 包一层脚本也判断不出「这次算不算数」，只能去解析终端中文。`3` 而不是 `2`——`2` 已被 argparse 的参数错误占用，混用就分不清「命令写错了」和「站点没给数据」。走 `SystemExit` 而非返回值，因为 `dhgleaner`、`python -m dhgleaner`、`python main.py` 三个入口都是直接调 `main()`，返回值会被丢掉。
 - **反馈入口**：`.github/ISSUE_TEMPLATE/` 下三份 issue 表单——Bug 报告（索要 `dhgleaner doctor` 输出与 `data/last_capture_status.json`）、新增期刊源（索要免登录可访问的真实目录页 URL、站点平台、DH 内容分布以判定走 capture / capture-channel / harvest）、使用咨询；外加 `config.yml` 把安全问题导流到 SECURITY.md 的邮件渠道。另加 `.github/PULL_REQUEST_TEMPLATE.md`，把 CONTRIBUTING.md 的红线与提交前检查做成勾选清单。三份表单都强制确认「未粘贴 API Key」。
+- **发现层新增两个 tier1 公告源**（实测 2026-10-25）：《情报科学》与《国家图书馆学刊》的 CNKI 采编平台首页（`cnki_cbpt_current`）无需验证码即可宣告当前期——分别已宣告 2026 年第 7 期、第 9 期，而官网逐篇页当时停在第 5 期、第 4 期；discover 现在能报出「官方页落后 N 期」。其余各刊实测无公开可用的更快公告源（CBPT 首页挡验证码、方正发布平台仅《现代情报》入驻、DHCN 分类按学科不按刊；另实测 openvbk 域名已解不开、万方期刊页纯 JS 渲染、fabiao/istpei 类镜像为无结构 SEO 壳）。
+- **发现源「路子」提示（hints）**：原则是机器路径优先，人工只作兜底且必须自带可操作路径。发现源与刊级配置各增 `hints` 列表（`SourceResult.hints`/`JournalDiscovery.hints`，进 `toDict` 供 MCP 消费）；当源处于 ✍/⛔/✗/· 状态、或整刊无 frontier 时，CLI 在明细与「下一步」下逐条列出（公众号名、官网公告页、record-url 用法等），`discover --no-record` 同样可见。
 
 ### 变更
 

@@ -82,13 +82,23 @@ pipx install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
 
 `kind` 为 `blocked` 表示站点明确拒绝自动化（重试无用），为 `failed` 表示临时故障。`blockedJournals` 是 `failures` 里 `kind == "blocked"` 的刊名快捷方式，便于客户端直接决定「别再自动重试这几本」。
 
-## 只读工具（8 个）
+## 只读工具（9 个）
 
-这些工具不写磁盘、不写 Zotero、不发网络请求（`run_doctor` 需显式开启检查）。
+这些工具不写磁盘、不写 Zotero。例外只有 `discover_latest`：判断「最新的已知期次」必须访问公开页面，这是它的用途；它默认 `record=false` 仍然不落盘，请求预算与 `capture_*` 相同，并受同一套红线约束（401/403/412 立即失败，不绕过验证码与登录）。`run_doctor` 的联网检查需显式开启。
 
 ### `list_journals()`
 
 列出支持的期刊、抓取方式与固有局限。返回 `count` 与 `journals[]`，每项含 `name`、`parser`、`hasCurrentIssueUrl`、`channels`、`autoDownloadPdf`、`pdfNote`、`publishRule`。
+
+### `discover_latest(journal="", record=false)`
+
+**回答「这本刊有没有新刊」的唯一入口。**按每刊配置的分层发现源逐个探测，`journal` 留空即探测全部。返回 `journals[]`，每项含 `frontier`（最新已知期次及其来源、tier、URL）、`official`（官方逐篇页的最新一期）、`sources[]`（各源状态、报告的期次、`lagIssues` 比最新已知期次落后几期）、`nextAction`（直接把这一期抓下来的命令）。
+
+- `waitingForHuman[]`：该刊只有人工型源（如公众号目录推文），需要先用 `record_issue_url` 贴链接。
+- `noFrontier[]`：自动源全部落空的刊，应视为需要人工看一眼。
+- `record=true` 才把结论写入 `state.json` 的 `latestKnown`；之后 `capture_*` 抓到更旧的期次时会在返回值里带 `freshnessWarnings[]`。
+
+不要用 `list_journals()` 的 `currentIssueUrl` 判断有没有新刊：官方逐篇页常比真实公告晚几期（实测《数字人文》官方停在 2025 年第 4 期时，公众号已公告 2026 年第 3 期）。
 
 ### `get_capture_status()`
 
@@ -131,7 +141,7 @@ pipx install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
 
 自检数据目录、配置模板、依赖与可写性。`checkZotero` 会真实连接 Zotero 逐刊检查 Collection（只读，不新建目录）；`checkNetwork` 会真实抓取各刊当期目录页做解析验证。
 
-## 写本地工具（5 个）
+## 写本地工具（6 个）
 
 只写本数据目录，**不写 Zotero**。
 
@@ -165,6 +175,12 @@ pipx install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
 
 把当前待导入文章全部标记为已处理。**默认拒绝**；不带 `confirm=true` 时返回 `refused=true` 与 `requiresConfirmation=true`。
 
+### `record_issue_url(journal, url, source="")` → 前两个参数必填
+
+记下人工发现的最新一期链接（如公众号目录推文），只写 `state.json`，不抓网页、不覆盖待筛清单。之后 `discover_latest` 才会把这一期当作最新已知期次，并在官方逐篇页滞后时报出落后几期。
+
+只能记到人工型发现源（该刊 `discovery.sources` 里 `tier=1` 或 `fetch=manual` 的那一项）上；把链接记到官方源会让「官网说它是最新」和「有人贴了个链接」两件事混成一件，之后的时效判断就不可信。该刊没有人工型源时返回 `invalid_input`。
+
 ## 写 Zotero 工具（1 个）
 
 ### `import_to_zotero(selection="", titles="", titlesFile="", spreadsheet="", selectAll=false, useBasket=false, confirmTitles=false, confirm=false, dryRun=true, limit=200)`
@@ -187,6 +203,16 @@ pipx install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
 返回 `imported`、`skipped`、`failed`、`reportPath`、`createdCollections`、`report`。预检中止时返回 `wroteNothing=true`、`imported=0`，且**不写任何本地文件**。
 
 ## 一次典型的完整对话
+
+```text
+用户：数字人文最近有没有新刊
+
+1. discover_latest(journal="数字人文")      -> frontier 2025年第4期（官方页），tier1 微信源 waitingForHuman
+2. record_issue_url(journal="数字人文", url="https://mp.weixin.qq.com/s/…", source="wechat_toc")
+                                            -> 把用户贴进来的目录推文记到本地
+3. discover_latest(journal="数字人文")      -> frontier 变成 2026年第3期，官方页报 lagIssues=3
+4. 按 nextAction 走：这一期官方逐篇页还没上线，先告诉用户只能按公众号题录人工挑
+```
 
 ```text
 用户：帮我看看《数字人文研究》2026 年第 2 期有什么

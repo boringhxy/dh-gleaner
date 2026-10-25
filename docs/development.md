@@ -19,6 +19,7 @@ dhgleaner/
 ├── cli.py              命令行入口：解析参数 -> 调 service -> 打印
 ├── service.py          业务编排层：只返回数据，不打印、不抛 SystemExit
 ├── capture.py          抓取主流程与质量校验
+├── discovery.py        发现层：按刊的分层发现源，回答「最新的已知期次是哪一期」
 ├── importer.py         Zotero 导入与 PDF 处理
 ├── zotero_client.py    Zotero Web API 封装
 ├── presenter.py        渲染筛选清单与摘要
@@ -60,6 +61,7 @@ ruff check .
 - Magtech 历史 URL archive 定位、模板 fallback 与卷号推算。
 - Magtech 栏目分页、期次显示与 PDF 大小清洗。
 - 抓取质量校验。
+- 发现层 discover：volumn id 不能推期次、总期号（>12）忽略、只出现卷号不算一期、JournalX 空档页回显表头要拒绝、双月刊扫描起点按 issuesPerYear、微信推文没记录链接时「等人」而非失败、未标期次的推文不当前沿、时效提醒只警示不改抓取状态、每本刊的 kind/fetch 名与必填 url 校验（`tests/test_discovery.py`，全部离线桩，不发网络请求）。
 - 选择解析（编号、题名、表格、全选、跳过）。
 - 题名归一化与匹配确认流程。
 - Zotero Collection 定位与 `collectionPlan` 只读预检。

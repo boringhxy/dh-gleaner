@@ -27,6 +27,7 @@ from typing import List, Optional, Sequence
 
 from .capture import CaptureFailure, assessBatchQuality, captureAll, captureChannel
 from .config import credentialHint, isZoteroConfigured, loadConfig
+from .discovery import discoverAll
 from .harvest import harvestAll
 from .importer import importArticlesDetailed
 from .models import Article, IssueInfo
@@ -236,6 +237,7 @@ class CaptureOutcome:
     wrotePending: bool = False
     collected: List[tuple] = field(default_factory=list, repr=False)
     failures: List[CaptureFailure] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
 
     @property
     def articleCount(self) -> int:
@@ -245,6 +247,31 @@ class CaptureOutcome:
     def blockedJournals(self) -> List[str]:
         """被站点明确拒绝自动化的刊 —— 重试无用，得换 URL 或转人工。"""
         return [f.journal for f in self.failures if f.kind == "blocked"]
+
+
+def freshnessWarnings(state: StateManager, results: Sequence[tuple]) -> List[str]:
+    """抓到的期次若早于发现层记录的最新已知期次，如实提醒一句。
+
+    只提醒、不改 status 也不改退出码：抓到旧期不是「抓坏了」，清单本身是有效的；
+    但如果不说出来，「官网落后 3 期」和「确实没有新刊」在输出里就一模一样。
+    """
+    warnings: List[str] = []
+    for name, issue, _articles in results:
+        # harvest 的 results 只有年份（issue=0），拿它比期次只会造成假警报。
+        if not issue or not issue.year or not issue.issue:
+            continue
+        known = state.getLatestKnown(name) or {}
+        if not known.get("year"):
+            continue
+        if (issue.year, issue.issue) >= (known.get("year"), known.get("issue")):
+            continue
+        warnings.append(
+            f"《{name}》本次抓到 {issue.label()}，"
+            f"但发现层已知更新的一期是 {known.get('label')}（来源 {known.get('sourceId')}）。"
+            f"若官方逐篇页尚未上线该期，用 `dhgleaner discover --journal {name}` 看该走哪条路。"
+        )
+    return warnings
+
 
 
 def _finishCapture(
@@ -293,10 +320,11 @@ def captureIssue(
     dryRun: bool = False,
 ) -> CaptureOutcome:
     """按年期或目录页 URL 抓取。journalName 为空串表示抓配置中的全部期刊。"""
+    state = stateManager(cfg)
     results, failures = captureAll(
         cfg["journals"],
         cfg["http"],
-        stateManager(cfg),
+        state,
         force=True,
         target=target,
         journalName=journalName,
@@ -316,6 +344,7 @@ def captureIssue(
         status=quality,
         collected=results,
         failures=failures,
+        warnings=freshnessWarnings(state, results),
     )
     return _finishCapture(outcome, captureType="issue", note="", dryRun=dryRun)
 
@@ -331,10 +360,11 @@ def captureJournalChannel(
     dryRun: bool = False,
 ) -> CaptureOutcome:
     """按栏目抓取跨期文章清单。"""
+    state = stateManager(cfg)
     issue, articles, failure = captureChannel(
         journalConfig,
         cfg["http"],
-        stateManager(cfg),
+        state,
         channelName=channelName,
         explicitUrl=url or "",
         dedupe=bool(dedupe),
@@ -354,6 +384,7 @@ def captureJournalChannel(
         status=quality,
         collected=results,
         failures=failures,
+        warnings=freshnessWarnings(state, results),
     )
     return _finishCapture(outcome, captureType="channel", note=note, dryRun=dryRun)
 
@@ -403,6 +434,37 @@ def captureHarvest(
         failures=failures,
     )
     return _finishCapture(outcome, captureType="harvest", note=note, dryRun=dryRun)
+
+
+# --------------------------------------------------------------------------
+# 发现层：各刊「最新已知期次」探测
+# --------------------------------------------------------------------------
+
+def discoverLatest(
+    cfg: dict,
+    *,
+    journalName: str = "",
+    record: bool = True,
+) -> list:
+    """探测各刊当前最新的已知期次；journalName 为空串表示全部。
+
+    `record=True` 时把结论写进 state.json 的 `latestKnown`；不管是否落盘，都要读 state，
+    因为 tier-1 人工源（如微信目录推文）的链接就存在那里。
+    除 state.json 外不写任何数据产物、不碰 Zotero。
+    """
+    return discoverAll(
+        cfg,
+        journalName=journalName,
+        state=stateManager(cfg),
+        record=record,
+    )
+
+
+def recordManualIssueUrl(cfg: dict, journalName: str, sourceId: str, url: str) -> dict:
+    """记下人工发现的最新一期来源（如微信公众号目录推文），供 tier-1 发现源读取。"""
+    state = stateManager(cfg)
+    state.recordManualIssueUrl(journalName, sourceId, url)
+    return {"journal": journalName, "sourceId": sourceId, "url": url}
 
 
 # --------------------------------------------------------------------------
@@ -716,7 +778,9 @@ __all__ = [
     "captureJournalChannel",
     "collectDoctorChecks",
     "dependencyStatus",
+    "discoverLatest",
     "ensureCollections",
+    "freshnessWarnings",
     "loadCaptureStatus",
     "loadConfig",
     "loadPending",
@@ -724,6 +788,7 @@ __all__ = [
     "logPath",
     "planCollections",
     "previewArticles",
+    "recordManualIssueUrl",
     "runImport",
     "saveCaptureStatus",
     "saveCredentials",

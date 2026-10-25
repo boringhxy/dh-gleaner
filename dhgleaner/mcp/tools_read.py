@@ -1,6 +1,8 @@
 """MCP 只读工具：看一眼，不改任何东西。
 
-这些工具绝不写磁盘、不写 Zotero、不发请求（除 run_doctor 显式要求时）。
+这些工具绝不写磁盘、不写 Zotero。唯一例外是 `discover_latest`：它按设计要访问公开
+页面（判断「最新的已知期次」没有别的办法），请求预算与 capture 相同、受同一套红线约束
+（401/403/412 立即抛 FetchBlocked，不绕过、不重试），且默认 `record=False` 不落盘。
 `run_doctor` 的 Zotero/网络检查需要用户在参数里主动开启。
 """
 
@@ -23,7 +25,8 @@ from ..selection import (
 )
 from ..selection_basket import loadBasket, searchArticles, selectedArticles
 from ..service import collectDoctorChecks, loadCaptureStatus, loadPending, loadPendingData, previewArticles
-from ..validation import ValidationError
+from ..service import discoverLatest as discoverLatestService
+from ..validation import ValidationError, resolveDiscoverRequest
 from .errors import failure, success
 from .payloads import articleRow, articleRows, dataDirInfo
 
@@ -50,6 +53,44 @@ def listJournals() -> dict:
         count=len(journals),
         journals=journals,
         note="抓取公开目录页，不绕过验证码或登录；『先筛选、后导入』是硬约束。harvestOnly=true 的散篇期刊用 harvest_year 按年采集。",
+    )
+
+
+def discoverLatest(journal: str = "", record: bool = False) -> dict:
+    """探测各刊「当前最新的已知期次」，并给出拿到它该跑的命令。
+
+    这是回答「有没有新刊」的唯一入口：官方逐篇页（尤其 CNKI 采编平台）常比公众号
+    晚几期，只看它会把「官网还没上线」误判成「没有新刊」。
+
+    Args:
+        journal: 期刊名，支持别名（dhr / szrw / tsgzz 等）；留空探测全部期刊。
+        record: 默认 False（纯探测）。设为 True 才把结论写入 state.json 的 latestKnown，
+            供 capture 的时效提醒使用；除该状态文件外不写任何东西。
+    """
+    cfg = loadConfig()
+    try:
+        journalName = resolveDiscoverRequest(cfg, journal)
+    except ValidationError as e:
+        return failure(str(e), kind="invalid_input")
+
+    discoveries = [item.toDict() for item in discoverLatestService(cfg, journalName=journalName, record=record)]
+    waiting = [
+        item["journal"]
+        for item in discoveries
+        if not item["frontier"] and item["sources"] and all(s["status"] == "manual" for s in item["sources"])
+    ]
+    blind = [item["journal"] for item in discoveries if not item["frontier"] and item["journal"] not in waiting]
+    return success(
+        **dataDirInfo(),
+        count=len(discoveries),
+        journals=discoveries,
+        waitingForHuman=waiting,
+        noFrontier=blind,
+        note=(
+            "tier1=最早公告（常只有题录）、tier2=官方逐篇页、tier3=聚合站；"
+            "lagIssues 是该源比最新已知期次落后几期；nextAction 是直接把这一期抓下来的命令。"
+        ),
+        recorded=record,
     )
 
 
@@ -268,6 +309,8 @@ def register(server) -> None:
     """把只读工具挂到 MCP server 上。"""
     server.add_tool(listJournals, name="list_journals",
                     description="列出支持的期刊、抓取方式与固有局限（只读）")
+    server.add_tool(discoverLatest, name="discover_latest",
+                    description="探测各刊最新的已知期次并给出抓取命令；问「有没有新刊」先调它（默认不写盘）")
     server.add_tool(getCaptureStatus, name="get_capture_status",
                     description="查看最近一次抓取的状态与清单是否过期（只读）")
     server.add_tool(listPendingArticles, name="list_pending_articles",

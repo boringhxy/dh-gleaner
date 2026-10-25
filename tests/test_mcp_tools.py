@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib.util
 import unittest
+from unittest import mock
 
 try:
     from .helpers import pendingPayload, tempDataDir, writePending
@@ -63,18 +64,20 @@ EXPECTED_TOOLS = {
     "preview_import",
     "get_import_report",
     "run_doctor",
+    "discover_latest",
     "capture_issue",
     "capture_channel",
     "harvest_year",
     "export_review_spreadsheet",
     "mark_pending_skipped",
+    "record_issue_url",
     "import_to_zotero",
 }
 
 
 class RegistrationTests(unittest.TestCase):
     @unittest.skipUnless(_MCP_AVAILABLE, "需要 mcp 依赖（pip install -e '.[mcp]'）才能构建 server")
-    def testAllFourteenToolsAreRegistered(self):
+    def testAllToolsAreRegistered(self):
         server = buildServer()
         names = {tool.name for tool in server._tool_manager.list_tools()}
         self.assertEqual(names, EXPECTED_TOOLS)
@@ -309,6 +312,56 @@ class LocalWriteToolTests(unittest.TestCase):
             result = tools_capture.captureIssue(journal="图书馆论坛")
             self.assertFalse(result["ok"])
             self.assertEqual(result["failureKind"], "invalid_input")
+
+
+WECHAT_TOC_HTML = (
+    '<html><head><meta property="og:title" content="《数字人文》2026年第3期目录"></head>'
+    "<body><div>数字人文 本辑收录论文十一篇</div></body></html>"
+)
+CNKI_TOC_HTML = "<html><body>《数字人文》2025年04期</body></html>"
+
+
+def _stubFetch(url, ua="", **kwargs):
+    return WECHAT_TOC_HTML if "weixin" in url else CNKI_TOC_HTML
+
+
+class DiscoveryToolTests(unittest.TestCase):
+    """发现层的两个 MCP 入口：默认不写盘；人工链接只能记在人工源上。"""
+
+    def testRecordIssueUrlRejectsJournalWithoutManualSource(self):
+        with tempDataDir():
+            result = tools_capture.recordIssueUrl(journal="现代情报", url="https://example.org/x")
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["failureKind"], "invalid_input")
+
+    def testDiscoverLatestDoesNotWriteByDefault(self):
+        from dhgleaner import discovery
+        from dhgleaner.config import loadConfig
+        from dhgleaner.service import stateManager
+
+        with tempDataDir():
+            with mock.patch.object(discovery, "fetchHtml", side_effect=_stubFetch):
+                result = tools_read.discoverLatest(journal="数字人文")
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["journals"][0]["frontier"]["label"], "2025年第4期")
+            self.assertFalse(result["recorded"])
+            self.assertIsNone(stateManager(loadConfig()).getLatestKnown("数字人文"))
+
+    def testRecordedWechatUrlBecomesFrontierAndOfficialLags(self):
+        from dhgleaner import discovery
+
+        with tempDataDir():
+            tools_capture.recordIssueUrl(
+                journal="数字人文", url="https://mp.weixin.qq.com/s/abc", source="wechat_toc"
+            )
+            with mock.patch.object(discovery, "fetchHtml", side_effect=_stubFetch):
+                result = tools_read.discoverLatest(journal="数字人文")
+            item = result["journals"][0]
+        self.assertEqual(item["frontier"]["label"], "2026年第3期")
+        self.assertEqual(item["official"]["label"], "2025年第4期")
+        cbpt = next(s for s in item["sources"] if s["sourceId"] == "cbpt_current")
+        self.assertEqual(cbpt["lagIssues"], 3)
+        self.assertIn("capture --journal 数字人文 --url", item["nextAction"])
 
 
 if __name__ == "__main__":

@@ -55,6 +55,7 @@ def capturePayload(outcome: CaptureOutcome, *, articleLimit: int = 200) -> dict:
         "backups": [str(path) for path in outcome.backups],
         "failures": [f.toDict() for f in outcome.failures],
         "blockedJournals": outcome.blockedJournals,
+        "freshnessWarnings": list(outcome.warnings or []),
         "articles": articleRows(outcome.articles, articleLimit),
         "articlesTruncated": outcome.articleCount > articleLimit,
     }

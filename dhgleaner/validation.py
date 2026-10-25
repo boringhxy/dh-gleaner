@@ -179,6 +179,52 @@ def resolveHarvestRequest(
     return journalName, yearInt
 
 
+def resolveDiscoverRequest(cfg: dict, journal: str | None = None) -> str:
+    """校验 discover 请求；journal 留空表示探测配置中的全部期刊。"""
+    journalName = normalizeJournalName(journal)
+    if journalName and journalName not in knownJournalNames(cfg):
+        raise ValidationError(f"未知期刊: {journalName}。可用期刊: {availableJournalsText(cfg)}")
+    return journalName
+
+
+def resolveManualSourceRequest(cfg: dict, journal: str | None, url: str, source: str = "") -> tuple[str, str]:
+    """校验「记录人工发现的最新一期链接」，返回 (期刊名, 发现源 id)。
+
+    只允许记到 `fetch=manual` 或 tier==1 的人工源上：把链接记到官方源上会让
+    「官网说它是最新」和「有人贴了个链接」两件事混成一件，之后的时效判断就不可信了。
+    """
+    journalName = normalizeJournalName(journal)
+    if not journalName:
+        raise ValidationError("记录人工来源必须指定 --journal")
+    if not url:
+        raise ValidationError("记录人工来源必须给出 --record-url 指向的目录页/推文地址")
+    known = knownJournalNames(cfg)
+    if journalName not in known:
+        raise ValidationError(f"未知期刊: {journalName}。可用期刊: {availableJournalsText(cfg)}")
+    journalCfg = journalConfigByName(cfg, journalName)
+    sources = (journalCfg.get("discovery") or {}).get("sources") or []
+    manual = [s for s in sources if s.get("fetch") == "manual" or int(s.get("tier", 2)) == 1]
+    if not manual:
+        raise ValidationError(
+            f"《{journalName}》没有人工型发现源（discovery.sources 里 tier=1 或 fetch=manual）；"
+            "该刊的最新一期应由 discover 自动判定。"
+        )
+    if source:
+        wanted = [s for s in manual if s.get("id") == source]
+        if not wanted:
+            raise ValidationError(
+                f"《{journalName}》的人工型发现源里没有 {source}；可选："
+                f"{', '.join(str(s.get('id')) for s in manual)}"
+            )
+        return journalName, source
+    if len(manual) > 1:
+        raise ValidationError(
+            f"《{journalName}》有 {len(manual)} 个人工型发现源，请用 --source 指定其一："
+            f"{', '.join(str(s.get('id')) for s in manual)}"
+        )
+    return journalName, str(manual[0].get("id"))
+
+
 def isSkipToken(selection: str | None) -> bool:
     return (selection or "").strip() in SKIP_TOKENS
 

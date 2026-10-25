@@ -8,7 +8,24 @@
       "parser": "journy3",
       "publishRule": "季末28日",
       "autoDownloadPdf": true,
-      "pdfNote": "开放获取，自动下载"
+      "pdfNote": "开放获取，自动下载",
+      "discovery": {
+        "issuesPerYear": 4,
+        "sources": [
+          {
+            "id": "archive_volumn",
+            "kind": "archive_volumn_links",
+            "tier": 2,
+            "official": true,
+            "fetch": "capture-url",
+            "url": "http://dhr.ruc.edu.cn/CN/article/showOldVolumn.do",
+            "note": "官网过刊索引页一次请求枚举全部期次；(年,期)取最大值即最新，绝不按 volumn id 排序。"
+          }
+        ],
+        "hints": [
+          "人大开放获取，官网 journy3 即最快源；一般无需人工"
+        ]
+      }
     },
     {
       "name": "数字人文",
@@ -17,7 +34,47 @@
       "parser": "cnki_cbpt",
       "publishRule": "季初约1日，偶有延迟",
       "autoDownloadPdf": false,
-      "pdfNote": "CNKI验证码保护，PDF链接记录在Extra字段，需学校账号登录后手动下载"
+      "pdfNote": "CNKI验证码保护，PDF链接记录在Extra字段，需学校账号登录后手动下载",
+      "discovery": {
+        "issuesPerYear": 4,
+        "sources": [
+          {
+            "id": "wechat_toc",
+            "kind": "wechat_toc_issue",
+            "tier": 1,
+            "official": false,
+            "fetch": "manual",
+            "url": "",
+            "requiredPageText": [
+              "数字人文"
+            ],
+            "note": "公众号「DH数字人文」的目录推文是这本集刊最早的公告，也是 2026 年已出辑次的唯一证据；cbpt 首页长期滞后，绝不能只看它判定「没有新刊」。公众号在微信外没有可列举的文章列表，所以本源要用 discover --record-url 贴上最新推文链接才能确认期次。",
+            "hints": [
+              "微信搜一搜：公众号「DH数字人文」，找最新一期目录推文",
+              "DHCN 中国数字人文网（dhcn.cn）常转载该刊推文",
+              "编辑部官网 https://szrw.cbpt.cnki.net/ 公告栏"
+            ]
+          },
+          {
+            "id": "cbpt_current",
+            "kind": "cnki_cbpt_current",
+            "tier": 2,
+            "official": true,
+            "fetch": "capture-url",
+            "url": "https://szrw.cbpt.cnki.net/WKC/WebPublication/index.aspx?mid=SZRW",
+            "note": "官方采编平台只宣告首页当前那一期；历史期次列表需要验证码，本项目按红线不绕过，抓往期要用 --url 指定目录页。"
+          },
+          {
+            "id": "dhcn_categories",
+            "kind": "wordpress_issue_categories",
+            "tier": 3,
+            "official": false,
+            "fetch": "manual",
+            "url": "https://www.dhcn.cn/wp-json/wp/v2/categories?per_page=100",
+            "note": "DHCN 是微信内容的转载/聚合层，分类名带「2025年第4期」，是唯一能拿到摘要的一层；比公众号滞后，用于回填元数据而非判新鲜度。"
+          }
+        ]
+      }
     },
     {
       "name": "中国数字人文",
@@ -27,6 +84,32 @@
       "publishRule": "半年刊；名录未提供稳定公开目录页",
       "autoDownloadPdf": false,
       "pdfNote": "暂无稳定公开目录页；请用 --url 提供可访问目录页，导入时以元数据降级为主",
+      "discovery": {
+        "issuesPerYear": 2,
+        "sources": [
+          {
+            "id": "wp_categories",
+            "kind": "wordpress_issue_categories",
+            "tier": 2,
+            "official": true,
+            "fetch": "capture-url",
+            "url": "https://www.dhcn.cn/wp-json/wp/v2/categories?per_page=100",
+            "note": "半年刊；一个分类对应一期，分类名形如「2025年第4期」，可直接列出全部已知期次与目录页 link。"
+          },
+          {
+            "id": "wp_latest_posts",
+            "kind": "wordpress_latest_posts",
+            "tier": 3,
+            "official": false,
+            "fetch": "capture-url",
+            "url": "https://www.dhcn.cn/wp-json/wp/v2/posts?per_page=5",
+            "note": "站方最近更新，用于分类命名不规范时兜底判新鲜度。"
+          }
+        ],
+        "hints": [
+          "DHCN 即官方镜像，一般无需人工；漏期时微信搜一搜「DHCN」认准官方账号"
+        ]
+      },
       "genericRules": {
         "allowedDomains": [
           "dhcn.cn",
@@ -61,6 +144,24 @@
       "publishRule": "半年刊；中国台湾地区期刊，公开目录页需手动确认",
       "autoDownloadPdf": false,
       "pdfNote": "请用 --url 提供可访问目录页；导入时以元数据降级为主",
+      "discovery": {
+        "issuesPerYear": 2,
+        "sources": [
+          {
+            "id": "manual_index",
+            "kind": "manual_note",
+            "tier": 1,
+            "official": true,
+            "fetch": "manual",
+            "note": "实测（2026-10-24）「各期目次」页静态 HTML 里只有活动/会议条目，期次清单在 Airiti 动态页上，没有可脚本列举的公开索引；这一层只能人工确认后用 discover --record-url 记录目录页。",
+            "hints": [
+              "TADH 官网 http://www.tadh.org.tw/ 的最新公告页",
+              "Airiti 期刊页 https://www.airitilibrary.com/ 搜刊名",
+              "微信搜一搜刊名、认准官方认证账号的目录推文"
+            ]
+          }
+        ]
+      },
       "genericRules": {
         "allowedDomains": [
           "tadh.org.tw",
@@ -88,7 +189,24 @@
       "parser": "magtech",
       "publishRule": "月刊；设有数字人文常设栏目",
       "autoDownloadPdf": true,
-      "pdfNote": "公开期刊系统，导入选中文章时能下载则自动挂载。注意：官网的反爬前置检查只打在期次入口的 current.shtml 上，普通 HTTP 请求会稳定收到 412（不是偶发，2026-10-22 复测仍然如此），本项目按红线不绕过该检查；抓某一期要用 --url 指定可直接打开的目录页。栏目页 showChannelArticle.do 与过刊索引 showOldVolumn.do 可以正常读取，capture-channel 不受影响。另外 historyUrlTemplate 含 {volume} 但未配 volumeYearBase/volumeBase，按年期自动定位过刊不可用。",
+      "pdfNote": "公开期刊系统，导入选中文章时能下载则自动挂载。注意（2026-10-24 复测）：官网反爬前置检查覆盖**所有**期次入口——current.shtml、home.shtml、CN/volumn/volumn_N.shtml 一律 412，不是只有 current 那一页；本项目按红线不绕过该检查。过刊索引 showOldVolumn.do 可以正常读取，所以发现最新期没问题，但要拿到正文只能走栏目页 showChannelArticle.do（capture-channel）。另外 historyUrlTemplate 含 {volume} 但未配 volumeYearBase/volumeBase，按年期自动定位过刊不可用。",
+      "discovery": {
+        "issuesPerYear": 12,
+        "sources": [
+          {
+            "id": "archive_volumn",
+            "kind": "archive_volumn_links",
+            "tier": 2,
+            "official": true,
+            "fetch": "channel",
+            "url": "https://www.libraryjournal.com.cn/CN/article/showOldVolumn.do",
+            "note": "官网过刊索引页一次请求枚举全部期次；(年,期)取最大值即最新，绝不按 volumn id 排序。（该刊期次页正文入口 412，抓正文走 capture-channel 栏目页。）"
+          }
+        ],
+        "hints": [
+          "微信搜一搜刊名、认准官方认证账号：新刊目录推文常早于机器可读入口（官网全站 412，这是唯一快路）"
+        ]
+      },
       "historyUrlTemplate": "https://www.libraryjournal.com.cn/CN/Y{year}/V{volume}/I{issue}",
       "channelSources": [
         {
@@ -111,6 +229,23 @@
       "publishRule": "月刊；设有数字人文常设栏目",
       "autoDownloadPdf": true,
       "pdfNote": "公开期刊系统，导入选中文章时能下载则自动挂载",
+      "discovery": {
+        "issuesPerYear": 12,
+        "sources": [
+          {
+            "id": "archive_yvi",
+            "kind": "archive_yvi_links",
+            "tier": 2,
+            "official": true,
+            "fetch": "capture-url",
+            "url": "http://tsglt.zslib.com.cn/CN/article/showOldVolumn.do",
+            "note": "过刊页 /CN/Y{年}/V{卷}/I{期} 直链皮肤，直接从 href 解析年期卷。"
+          }
+        ],
+        "hints": [
+          "微信搜一搜刊名、认准官方认证账号的新刊目录推文（官网通常同步，不急可等 tier2）"
+        ]
+      },
       "historyUrlTemplate": "http://tsglt.zslib.com.cn/CN/Y{year}/V{volume}/I{issue}",
       "volumeYearBase": 2026,
       "volumeBase": 46
@@ -125,7 +260,24 @@
       "referer": "https://www.xdqb.net/",
       "publishRule": "散篇 harvest 期刊；无常设数字人文栏目，走方正 Founder 开放 API",
       "autoDownloadPdf": false,
-      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF"
+      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF",
+      "discovery": {
+        "issuesPerYear": 12,
+        "sources": [
+          {
+            "id": "founder_tree",
+            "kind": "founder_period_tree",
+            "tier": 2,
+            "official": true,
+            "fetch": "harvest",
+            "url": "",
+            "note": "方正发布平台 getPeriodTree 公开 JSON，年→期→periodId 全量枚举；siteId 走刊级配置。"
+          }
+        ],
+        "hints": [
+          "微信搜一搜刊名、认准官方认证账号（方正接口通常已够快，仅作兜底）"
+        ]
+      }
     },
     {
       "name": "情报科学",
@@ -137,7 +289,34 @@
       "harvestOnly": true,
       "publishRule": "散篇 harvest 期刊；无常设数字人文栏目（magtech/ul.lunwen 皮肤）",
       "autoDownloadPdf": false,
-      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF"
+      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF",
+      "discovery": {
+        "issuesPerYear": 12,
+        "sources": [
+          {
+            "id": "cbpt_current",
+            "kind": "cnki_cbpt_current",
+            "tier": 1,
+            "official": false,
+            "fetch": "harvest",
+            "url": "http://qbkx.cbpt.cnki.net/WKC/WebPublication/index.aspx?mid=QBKX",
+            "note": "CNKI 采编平台首页公开宣告当前期（2026-10-25 实测 2026 年第 7 期，官网过刊索引当时停在第 5 期）。本源只判新鲜度；正文仍以 tier2 过刊索引为准，散篇刊走 harvest。历史期列表需验证码，按红线不绕过。",
+            "hints": [
+              "官网过刊索引出新一期后 tier2 自动跟上，harvest 即可",
+              "微信搜一搜刊名、认准官方认证账号（吉林大学主办，检索到其发过选题指南）"
+            ]
+          },
+          {
+            "id": "archive_volumn",
+            "kind": "archive_volumn_links",
+            "tier": 2,
+            "official": true,
+            "fetch": "harvest",
+            "url": "https://journal12.magtechjournal.com/jwk3_qbkx/CN/article/showOldVolumn.do",
+            "note": "官网过刊索引页一次请求枚举全部期次；(年,期)取最大值即最新，绝不按 volumn id 排序。"
+          }
+        ]
+      }
     },
     {
       "name": "中国图书馆学报",
@@ -148,7 +327,24 @@
       "maxQuarter": 12,
       "publishRule": "散篇 harvest 期刊；无常设数字人文栏目（JournalX .NET）",
       "autoDownloadPdf": false,
-      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF"
+      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF",
+      "discovery": {
+        "issuesPerYear": 6,
+        "sources": [
+          {
+            "id": "quarter_scan",
+            "kind": "journalx_quarter_scan",
+            "tier": 2,
+            "official": true,
+            "fetch": "harvest",
+            "url": "https://www.jlis.cn/jtlsc/ch/reader/issue_list.aspx",
+            "note": "JournalX 无「最新一期」页，从按出版节奏折算的预期档号向下扫，到第一个有正文的档。"
+          }
+        ],
+        "hints": [
+          "微信搜一搜刊名、认准官方认证账号；官网 JournalX 出刊滞后时以推文公告为准"
+        ]
+      }
     },
     {
       "name": "国家图书馆学刊",
@@ -159,7 +355,34 @@
       "maxQuarter": 12,
       "publishRule": "散篇 harvest 期刊；无常设数字人文栏目（JournalX .NET）",
       "autoDownloadPdf": false,
-      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF"
+      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF",
+      "discovery": {
+        "issuesPerYear": 6,
+        "sources": [
+          {
+            "id": "cbpt_current",
+            "kind": "cnki_cbpt_current",
+            "tier": 1,
+            "official": false,
+            "fetch": "manual",
+            "url": "http://gjts.cbpt.cnki.net/WKC/WebPublication/index.aspx?mid=GJTS",
+            "note": "CNKI 采编平台首页公开宣告当前期（2026-10-25 实测 2026 年第 9 期）。官网 JournalX 逐篇页常滞后；当 frontier 来自本源而 official 落后时，本期正文尚未上线，只能按题录人工挑，等 tier2 出刊再 harvest。",
+            "hints": [
+              "官网 https://gtxk.nlc.cn/ 出刊后自动跟上（tier2），不急可等",
+              "要立刻拿题录：浏览器打开本源 url 直接看当期目录"
+            ]
+          },
+          {
+            "id": "quarter_scan",
+            "kind": "journalx_quarter_scan",
+            "tier": 2,
+            "official": true,
+            "fetch": "harvest",
+            "url": "https://gtxk.nlc.cn/ch/reader/issue_list.aspx",
+            "note": "JournalX 无「最新一期」页，从按出版节奏折算的预期档号向下扫，到第一个有正文的档。"
+          }
+        ]
+      }
     },
     {
       "name": "数字图书馆论坛",
@@ -170,7 +393,24 @@
       "maxQuarter": 12,
       "publishRule": "散篇 harvest 期刊；无常设数字人文栏目（ISTIC JournalX .NET）",
       "autoDownloadPdf": false,
-      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF"
+      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF",
+      "discovery": {
+        "issuesPerYear": 12,
+        "sources": [
+          {
+            "id": "quarter_scan",
+            "kind": "journalx_quarter_scan",
+            "tier": 2,
+            "official": true,
+            "fetch": "harvest",
+            "url": "http://journals.istic.ac.cn/dlf/ch/reader/issue_list.aspx",
+            "note": "JournalX 无「最新一期」页，从按出版节奏折算的预期档号向下扫，到第一个有正文的档。"
+          }
+        ],
+        "hints": [
+          "微信搜一搜刊名、认准官方认证账号的新刊目录推文"
+        ]
+      }
     },
     {
       "name": "图书情报知识",
@@ -182,7 +422,24 @@
       "harvestOnly": true,
       "publishRule": "散篇 harvest 期刊；无常设数字人文栏目（magtech/div.dqml 皮肤）",
       "autoDownloadPdf": false,
-      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF"
+      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF",
+      "discovery": {
+        "issuesPerYear": 6,
+        "sources": [
+          {
+            "id": "archive_volumn",
+            "kind": "archive_volumn_links",
+            "tier": 2,
+            "official": true,
+            "fetch": "harvest",
+            "url": "https://dik.whu.edu.cn/jwk3/tsqbzs/CN/article/showOldVolumn.do",
+            "note": "官网过刊索引页一次请求枚举全部期次；(年,期)取最大值即最新，绝不按 volumn id 排序。"
+          }
+        ],
+        "hints": [
+          "微信搜一搜刊名、认准官方认证账号（武大主办）的新刊目录推文"
+        ]
+      }
     },
     {
       "name": "信息资源管理学报",
@@ -194,7 +451,24 @@
       "harvestOnly": true,
       "publishRule": "散篇 harvest 期刊；无常设数字人文栏目（magtech/div.dqml 皮肤）",
       "autoDownloadPdf": false,
-      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF"
+      "pdfNote": "散篇 harvest 只取题录与摘要，不下载 PDF",
+      "discovery": {
+        "issuesPerYear": 6,
+        "sources": [
+          {
+            "id": "archive_volumn",
+            "kind": "archive_volumn_links",
+            "tier": 2,
+            "official": true,
+            "fetch": "harvest",
+            "url": "https://jirm.whu.edu.cn/jwk3/xxzyglxb/CN/article/showOldVolumn.do",
+            "note": "官网过刊索引页一次请求枚举全部期次；(年,期)取最大值即最新，绝不按 volumn id 排序。"
+          }
+        ],
+        "hints": [
+          "微信搜一搜刊名、认准官方认证账号（武大主办）的新刊目录推文"
+        ]
+      }
     }
   ],
   "zotero": {

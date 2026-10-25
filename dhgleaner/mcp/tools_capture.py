@@ -22,11 +22,15 @@ from ..service import (
 from ..service import (
     captureIssue as _captureIssue,
 )
+from ..service import (
+    recordManualIssueUrl as _recordManualIssueUrl,
+)
 from ..validation import (
     ValidationError,
     resolveCaptureRequest,
     resolveChannelRequest,
     resolveHarvestRequest,
+    resolveManualSourceRequest,
 )
 from .errors import classifyFailure, failure, success
 from .payloads import capturePayload, dataDirInfo
@@ -253,6 +257,32 @@ def markPendingSkipped(confirm: bool = False) -> dict:
     )
 
 
+def recordIssueUrl(journal: str, url: str, source: str = "") -> dict:
+    """记下人工发现的最新一期链接（如微信公众号目录推文），只写本地 state.json。
+
+    《数字人文》这类集刊的最早公告在公众号里，而公众号在微信外没有可列举的文章列表：
+    新推文只能由人贴进来。记下来之后 `discover_latest` 才会把这一期认作最新已知期次，
+    并在官方逐篇页滞后时提醒「还差几期」。
+
+    Args:
+        journal: 期刊名，支持别名。
+        url: 该期目录页 / 目录推文地址。
+        source: 人工型发现源的 id（如 wechat_toc）；该刊只有一个个人工源时可省略。
+    """
+    cfg = loadConfig()
+    try:
+        journalName, sourceId = resolveManualSourceRequest(cfg, journal, url, source)
+    except ValidationError as e:
+        return failure(str(e), kind="invalid_input")
+    info = _recordManualIssueUrl(cfg, journalName, sourceId, url)
+    return success(
+        **dataDirInfo(),
+        **info,
+        note="只写 state.json，不抓网页、不覆盖待筛清单、不碰 Zotero。",
+        nextStep=f"接着调 discover_latest(journal='{journalName}') 确认该链接宣告的是哪一期。",
+    )
+
+
 def register(server) -> None:
     """把写本地工具挂到 MCP server 上。"""
     server.add_tool(captureIssue, name="capture_issue",
@@ -265,6 +295,8 @@ def register(server) -> None:
                     description="把待筛清单导出为 Excel 勾选表（写本数据目录）")
     server.add_tool(markPendingSkipped, name="mark_pending_skipped",
                     description="把当前待导入文章全部标记为已处理（需 confirm=true）")
+    server.add_tool(recordIssueUrl, name="record_issue_url",
+                    description="记下人工发现的最新一期链接（微信目录推文等），只写 state.json")
 
 
 __all__ = [
@@ -273,5 +305,6 @@ __all__ = [
     "exportReviewSpreadsheet",
     "harvestYear",
     "markPendingSkipped",
+    "recordIssueUrl",
     "register",
 ]

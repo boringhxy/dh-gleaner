@@ -21,12 +21,14 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import json
 import sys
 from pathlib import Path
 from typing import List, NoReturn
 
 from . import __version__
 from .config import credentialHint, isZoteroConfigured, loadConfig
+from .discovery import renderDiscoveries
 from .logging_setup import forceUtf8, setupLogging
 from .paths import configTemplatePath, getPaths, setDataDir
 from .presenter import getArticleByIndex, renderAbstract
@@ -62,11 +64,13 @@ from .service import (
     captureIssue,
     captureJournalChannel,
     collectDoctorChecks,
+    discoverLatest,
     ensureCollections,
     loadPending,
     loadPendingData,
     planCollections,
     previewArticles,
+    recordManualIssueUrl,
     runImport,
     saveCredentials,
     savePending,
@@ -77,7 +81,9 @@ from .validation import (
     ValidationError,
     resolveCaptureRequest,
     resolveChannelRequest,
+    resolveDiscoverRequest,
     resolveHarvestRequest,
+    resolveManualSourceRequest,
 )
 from .zotero_client import ZoteroClient
 
@@ -113,24 +119,26 @@ def _ok(label: str, ok: bool, detail: str = ""):
     print(f"{icon} {label}{suffix}")
 
 
-def _printCaptureFailures(outcome) -> None:
-    """把每本刊的失败原因打到终端。
+def _printCaptureAdvisories(outcome) -> None:
+    """把每本刊的失败原因与时效提醒打到终端。
 
-    过去这些只进日志文件，用户看到的只是「文章数偏少」，无法区分
+    过去失败只进日志文件，用户看到的只是「文章数偏少」，无法区分
     「站点拒绝自动化」和「网络抖动，重试就好」——两者的应对完全相反。
+    时效提醒同理：抓到旧期与「确实没有新刊」在清单上长得一模一样。
     """
-    if not outcome.failures:
-        return
-    blocked = [f for f in outcome.failures if f.kind == "blocked"]
-    retryable = [f for f in outcome.failures if f.kind != "blocked"]
-    if blocked:
-        print("\n⛔ 以下期刊拒绝自动化访问，重试无用（请用 --url 指定可直接打开的目录页，或转人工）：")
-        for failure in blocked:
-            print(f"  - {failure.describe()}")
-    if retryable:
-        print("\n⚠️ 以下期刊本次没抓到，可稍后重试：")
-        for failure in retryable:
-            print(f"  - {failure.describe()}")
+    if outcome.failures:
+        blocked = [f for f in outcome.failures if f.kind == "blocked"]
+        retryable = [f for f in outcome.failures if f.kind != "blocked"]
+        if blocked:
+            print("\n⛔ 以下期刊拒绝自动化访问，重试无用（请用 --url 指定可直接打开的目录页，或转人工）：")
+            for failure in blocked:
+                print(f"  - {failure.describe()}")
+        if retryable:
+            print("\n⚠️ 以下期刊本次没抓到，可稍后重试：")
+            for failure in retryable:
+                print(f"  - {failure.describe()}")
+    for warning in getattr(outcome, "warnings", None) or []:
+        print(f"\n⏳ {warning}")
 
 
 def _isInteractive() -> bool:
@@ -326,7 +334,7 @@ def cmdCapture(args, cfg):
         dedupe=bool(args.dedupe),
     )
     print(outcome.markdown)
-    _printCaptureFailures(outcome)
+    _printCaptureAdvisories(outcome)
 
     paths = getPaths()
     if outcome.status == "success":
@@ -364,7 +372,7 @@ def cmdCaptureChannel(args, cfg):
         dedupe=bool(args.dedupe),
     )
     print(outcome.markdown)
-    _printCaptureFailures(outcome)
+    _printCaptureAdvisories(outcome)
 
     paths = getPaths()
     if outcome.status == "success":
@@ -403,7 +411,7 @@ def cmdHarvest(args, cfg):
         dryRun=bool(args.dry_run),
     )
     print(outcome.markdown)
-    _printCaptureFailures(outcome)
+    _printCaptureAdvisories(outcome)
 
     paths = getPaths()
     scope = f"《{journalName}》" if journalName else "全部散篇期刊"
@@ -426,6 +434,50 @@ def cmdHarvest(args, cfg):
             print("（本次为 --dry-run 预览，未落盘；去掉 --dry-run 可写入待筛清单。）")
 
     return _captureExitCode(outcome)
+
+
+# --------------------------------------------------------------------------
+# 阶段〇：发现层 —— 各刊「最新已知期次」
+# --------------------------------------------------------------------------
+
+def cmdDiscover(args, cfg):
+    """探测各刊当前最新的已知期次，并说明该用哪条命令拿到它。"""
+    if args.record_url:
+        try:
+            journalName, sourceId = resolveManualSourceRequest(
+                cfg, args.journal, args.record_url, args.source
+            )
+        except ValidationError as e:
+            _fail(str(e))
+        recordManualIssueUrl(cfg, journalName, sourceId, args.record_url)
+        print(f"已记录《{journalName}》人工来源 {sourceId}: {args.record_url}")
+        print(f"接着运行 dhgleaner discover --journal {journalName} 确认它宣告的是哪一期。")
+        return EXIT_OK
+
+    try:
+        journalName = resolveDiscoverRequest(cfg, args.journal)
+    except ValidationError as e:
+        _fail(str(e))
+
+    discoveries = discoverLatest(cfg, journalName=journalName, record=not args.no_record)
+    if args.json:
+        print(json.dumps([item.toDict() for item in discoveries], ensure_ascii=False, indent=2))
+    else:
+        scope = f"《{journalName}》" if journalName else "全部期刊"
+        print(f"发现层探测：{scope}（探测结果只写 state.json，不覆盖待筛清单、不碰 Zotero）")
+        print(renderDiscoveries(discoveries))
+        if args.no_record:
+            print("\n（--no-record：本次未把结论写入 state.json）")
+
+    # 全部源都标了 manual（只能等人）不算失败：那是在等人，不是抓坏了。
+    missing = [
+        item.journal
+        for item in discoveries
+        if not item.frontier and {s.status for s in item.sources} - {"manual"}
+    ]
+    if missing:
+        print(f"\n以下期刊没能探出最新期次：{'、'.join(missing)}")
+    return EXIT_FAILED if missing else EXIT_OK
 
 
 # --------------------------------------------------------------------------
@@ -682,6 +734,19 @@ def main():
     pHar.add_argument("--dedupe", action="store_true", help="按 state.json 过滤已处理文章")
     pHar.add_argument("--dry-run", action="store_true", help="只打印结果，不覆盖 pending/review")
 
+    pDisc = sub.add_parser(
+        "discover",
+        help="探测各刊当前最新的已知期次，并给出拿到它该跑的命令",
+    )
+    pDisc.add_argument("--journal", help="只探测指定期刊；留空则探测配置中的全部期刊")
+    pDisc.add_argument("--json", action="store_true", help="输出结构化 JSON，供脚本或 Agent 消费")
+    pDisc.add_argument("--no-record", action="store_true", help="只报告结论，不写入 state.json 的 latestKnown")
+    pDisc.add_argument(
+        "--record-url",
+        help="记下人工发现的最新一期链接（如微信公众号目录推文），供 tier-1 发现源使用",
+    )
+    pDisc.add_argument("--source", help="配合 --record-url：指定人工型发现源的 id")
+
     pRev = sub.add_parser("review", help="查看最近一次捕获的目录和摘要筛选清单")
 
     pExport = sub.add_parser("export-review", help="导出 Excel 筛选表，方便在表格软件中勾选文章")
@@ -722,7 +787,7 @@ def main():
 
     # 子命令之后也允许写 --data-dir，两种位置等价；
     # default=SUPPRESS 是关键：否则子解析器会用默认值覆盖顶层已解析的值。
-    for subParser in (pCap, pChan, pHar, pRev, pExport, pScreen, pImp, pDoc, pAbs, pInit, pInitColl):
+    for subParser in (pCap, pChan, pHar, pDisc, pRev, pExport, pScreen, pImp, pDoc, pAbs, pInit, pInitColl):
         subParser.add_argument("--data-dir", default=argparse.SUPPRESS, help=dataDirHelp)
 
     args = parser.parse_args()
@@ -738,6 +803,7 @@ def main():
         "capture": cmdCapture,
         "capture-channel": cmdCaptureChannel,
         "harvest": cmdHarvest,
+        "discover": cmdDiscover,
         "review": cmdReview,
         "export-review": cmdExportReview,
         "screen": cmdScreen,

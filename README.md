@@ -135,7 +135,32 @@ dhgleaner doctor --network
 
 不指定期刊的 `capture --year x --issue x` 会被拒绝——要抓全部必须显式加 `--all-journals`。
 
-`capture-channel` 只对 Magtech 皮肤的期刊开放，其他皮肤会直接报「当前解析器为 xxx，暂不支持 capture-channel」；栏目页地址取自该刊配置的 `channelSources`，没配就必须用 `--url` 指定。默认配置里写了 `channelSources` 的只有《图书馆杂志》，它的**栏目页可以正常抓取**（2026-10-22 复测：单页 40 篇、跨页合并 67 篇，年卷期与页码都在），上表那条命令是能直接跑的——被 412 挡住的是它的**期次入口** `current.shtml`，见「边界」。
+`capture-channel` 只对 Magtech 皮肤的期刊开放，其他皮肤会直接报「当前解析器为 xxx，暂不支持 capture-channel」；栏目页地址取自该刊配置的 `channelSources`，没配就必须用 `--url` 指定。默认配置里写了 `channelSources` 的只有《图书馆杂志》，它的**栏目页可以正常抓取**（2026-10-22 复测：单页 40 篇、跨页合并 67 篇，年卷期与页码都在），上表那条命令是能直接跑的——被 412 挡住的是它的**所有期次入口**（`current.shtml`、`home.shtml`、`CN/volumn/volumn_N.shtml` 都收得到 412，2026-10-24 复测），过刊索引页 `showOldVolumn.do` 则可正常读取，见「边界」。
+
+### 发现最新一期（discover）
+
+「抓不到最新一期」有两种完全不同的原因：站点确实没上线新刊，或者**我们看的源本来就比真实公告晚几期**。只看一个入口无法区分这两件事，所以每本刊在配置里都写了一组分层发现源（`discovery.sources`），`discover` 逐个问「你知道的最新一期是第几期」，再按层汇总：
+
+- **tier 1**：最早公告（如公众号目录推文），通常只有题录、没有逐篇文章页。
+- **tier 2**：官方逐篇页（期刊自建系统 / CNKI 采编平台），能直接抓正文。
+- **tier 3**：聚合与镜像站（如 DHCN），最滞后，但常是唯一有摘要的一层。
+
+```bash
+dhgleaner discover                        # 探测全部期刊
+dhgleaner discover --journal "数字人文"    # 只看一刊
+dhgleaner discover --json                 # 结构化输出，供脚本与 Agent 消费
+dhgleaner discover --no-record            # 只报告，不写 state.json 的 latestKnown
+```
+
+输出每刊一行「最新已知期次 ← 哪个源」，各源标出比它落后几期，末尾直接给出拿到这一期该跑的命令（`capture --url` / `capture-channel` / `harvest`）。期次一律按 (年, 期) 取最大值，**不按 CMS 内部 id 或页面顺序推断**（实测《情报科学》id 1275 是第2期、id 1273 反而是第5期）。
+
+tier 1 里有些源站外不可列举——微信公众号没有文章列表接口，往期推文也不互链，所以新推文只能由人贴进来：
+
+```bash
+dhgleaner discover --journal "数字人文" --record-url "https://mp.weixin.qq.com/s/xxxx" --source wechat_toc
+```
+
+记下之后 `discover` 就能把这一期认作最新已知期次，并在官方页仍停在旧期时明确报出「落后 3 期」。之后任何一次 `capture` / `capture-channel` 抓到早于该记录的期次，都会在输出里追加一条 ⏳ 时效提醒（不改变抓取状态与退出码——抓到旧期不是抓坏了，清单本身有效）。
 
 ### 散篇 harvest（按年枚举 + 关键词筛）
 
@@ -327,11 +352,13 @@ pipx install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
 
 几乎所有工具的返回值里都带 `dataDir`、`dataDirSource`、`configLocalPath`，可以让客户端确认自己读写的是哪个目录。
 
-服务端暴露 14 个工具：
+服务端暴露 16 个工具：
 
-- **只读 8 个**：`list_journals`、`get_capture_status`、`list_pending_articles`、`get_article_abstract`、`search_pending_articles`、`preview_import`、`get_import_report`、`run_doctor`
-- **写本地 5 个**：`capture_issue`、`capture_channel`、`harvest_year`、`export_review_spreadsheet`、`mark_pending_skipped`
+- **只读 9 个**：`list_journals`、`discover_latest`、`get_capture_status`、`list_pending_articles`、`get_article_abstract`、`search_pending_articles`、`preview_import`、`get_import_report`、`run_doctor`
+- **写本地 6 个**：`capture_issue`、`capture_channel`、`harvest_year`、`export_review_spreadsheet`、`mark_pending_skipped`、`record_issue_url`
 - **写 Zotero 1 个**：`import_to_zotero`
+
+`discover_latest` 是「这本刊有没有新刊」的唯一入口：它会按分层发现源逐源探测（这是它的用途，请求预算与 capture 相同、受同一套不绕过验证码/登录的红线约束），默认 `record=false` 因此不写任何文件；设为 `true` 才把结论写入 `state.json` 的 `latestKnown`。问「有没有新刊」不要只看 `list_journals` 的 `currentIssueUrl`。
 
 `import_to_zotero` **默认拒绝执行**，必须同时给出 `confirm=true` 且 `dryRun=false` 才会真正写库。工具失败时返回带 `failureKind`（`network` / `blocked` / `captcha` / `empty_parse` / `issue_mismatch` / `not_configured` / `invalid_input` / `no_pending`）的结构化结果，便于客户端决定下一步。
 
@@ -345,7 +372,7 @@ pipx install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
 |------|------|
 | `data/review.md` | 最近一次捕获生成的人工筛选清单，含目录与摘要 |
 | `data/pending.json` | 结构化待筛数据，供 `review` / `abstract` / `import` 共用 |
-| `data/state.json` | 已导入或跳过的记录，避免重复处理 |
+| `data/state.json` | 已导入或跳过的记录，避免重复处理；另存发现层的 `latestKnown`（该刊最新已知期次）与人工贴入的期次链接 |
 | `data/last_capture_status.json` | 最近一次抓取状态；失败时标明 `review.md` 是否仍为旧内容 |
 | `data/import_report.md` | 最近一次真实导入报告，含 Zotero Key、失败原因与 PDF 处理状态 |
 | `data/title_match_report.md` | 最近一次题名匹配确认表（不代表已导入） |
@@ -423,6 +450,8 @@ pipx install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
 
 `data/last_capture_status.json` 里的 `failures` 会逐刊给出 `stage` 与 `kind`；`kind` 为 `blocked` 表示站点明确拒绝自动化（401/403/412），重试无用，只能换 `--url` 或转人工。
 
+`discover` 只有 0 与 1：1 表示某刊的自动发现源全部落空，需要人工看一眼。只有人工型源（如公众号目录推文）的期刊不算失败——那是在等人贴链接，不是抓坏了。
+
 ## PDF 降级策略
 
 PDF 只在导入阶段处理。
@@ -435,9 +464,9 @@ PDF 只在导入阶段处理。
 ## 边界
 
 - 《数字人文研究》历史期次支持较好，可从过刊页定位。
-- 《数字人文》依赖 CNKI 采编平台公开页面；历史期次若被验证码或登录限制阻挡，需要你提供可访问的目录页 URL。
+- 《数字人文》是清华大学 + 中华书局办的集刊（无 ISSN），**最早的公告在公众号「DH数字人文」的目录推文里**；CNKI 采编平台（`szrw.cbpt.cnki.net`）通常晚几期，DHCN（dhcn.cn）是微信内容的转载层但唯一带摘要。所以「cbpt 首页还是去年那期」不等于「没有新刊」——这一档只能用 `discover` 的分层结果判断，最新推文的 URL 需要人工 `--record-url` 贴进来（公众号在微信外没有可列举的文章列表，往期推文也不互链）。历史期次若被验证码或登录限制阻挡，需要你提供可访问的目录页 URL。
 - 《图书馆论坛》已接入公开期刊系统，可按配置中的 `historyUrlTemplate` 与 `volumeYearBase` / `volumeBase` 推算历史期 URL。
-- 《图书馆杂志》已接入通用 Magtech 解析器。**412 只打在期次入口 `current.shtml` 上**（不是偶发，2026-10-22 复测仍然如此），所以 `capture --journal 图书馆杂志 --year x --issue x` 走不通；同一站点的栏目页 `showChannelArticle.do` 与过刊索引页 `showOldVolumn.do` 用普通请求就能读到，`capture-channel --journal 图书馆杂志 --channel 数字人文` 是可用的。按项目红线，我们**不绕过**该检查；要抓某一期只能由你用浏览器打开目录页后以 `--url` 指定，且仍可能失败。该刊的 `historyUrlTemplate` 含 `{volume}` 但缺 `volumeYearBase` / `volumeBase`，按年期自动定位过刊也不可用——报错信息会直接说明这一点。
+- 《图书馆杂志》已接入通用 Magtech 解析器。**412 打在所有期次入口上**——`current.shtml`、`home.shtml`、`CN/volumn/volumn_N.shtml` 都会收到 412，不是偶发（2026-10-24 复测），所以 `capture --journal 图书馆杂志 --year x --issue x` 走不通；同一站点的过刊索引页 `showOldVolumn.do`（`discover` 用它发现最新期）与栏目页 `showChannelArticle.do` 用普通请求就能读到，`capture-channel --journal 图书馆杂志 --channel 数字人文` 是该刊目前唯一可自动拿到正文的路径。按项目红线，我们**不绕过**该检查；要抓某一期只能由你用浏览器打开目录页后以 `--url` 指定，且仍可能失败。该刊的 `historyUrlTemplate` 含 `{volume}` 但缺 `volumeYearBase` / `volumeBase`，按年期自动定位过刊也不可用——报错信息会直接说明这一点。
 - 《中国数字人文》目录常跳转微信，作者和摘要可能无法稳定补全，按题名和链接降级。
 - 《数位典藏与数位人文》Airiti 页面若返回平台宣传内容会被质量校验拦截，优先用 TADH 官方公告页或人工整理清单。
 - 本工具**不会**破解验证码、绕过登录，或替代学校账号权限。

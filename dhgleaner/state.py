@@ -132,6 +132,9 @@ class StateManager:
             self.state["journals"][name] = js
         js.setdefault("lastIssue", None)
         js.setdefault("lastCheckAt", None)
+        js.setdefault("latestKnown", None)
+        if not isinstance(js.get("manualIssueUrls"), dict):
+            js["manualIssueUrls"] = {}
         if not isinstance(js.get("processedArticles"), list):
             js["processedArticles"] = []
         if not isinstance(js.get("processedArticleMeta"), dict):
@@ -145,6 +148,25 @@ class StateManager:
 
     def getLastIssue(self, name: str) -> Optional[dict]:
         return self._journalState(name).get("lastIssue")
+
+    def getLatestKnown(self, name: str) -> Optional[dict]:
+        """发现层记下的「该刊最新已知期次」，与 lastIssue（已处理到哪一期）互不干扰。"""
+        return self._journalState(name).get("latestKnown")
+
+    def recordLatestKnown(self, name: str, ref: dict):
+        js = self._journalState(name)
+        previous = js.get("latestKnown") or {}
+        changed = not previous or previous.get("label") != ref.get("label")
+        js["latestKnown"] = {**ref, "recordedAt": _nowIso(), "changedAtIssue": bool(changed)}
+        self._save()
+
+    def getManualIssueUrl(self, name: str, sourceId: str) -> str:
+        return str(self._journalState(name).get("manualIssueUrls", {}).get(sourceId) or "")
+
+    def recordManualIssueUrl(self, name: str, sourceId: str, url: str):
+        js = self._journalState(name)
+        js.setdefault("manualIssueUrls", {})[sourceId] = url
+        self._save()
 
     def isIssueProcessed(self, name: str, issue: IssueInfo) -> bool:
         last = self.getLastIssue(name)
