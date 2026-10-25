@@ -360,19 +360,6 @@
         "issuesPerYear": 6,
         "sources": [
           {
-            "id": "cbpt_current",
-            "kind": "cnki_cbpt_current",
-            "tier": 1,
-            "official": false,
-            "fetch": "manual",
-            "url": "http://gjts.cbpt.cnki.net/WKC/WebPublication/index.aspx?mid=GJTS",
-            "note": "CNKI 采编平台首页公开宣告当前期（2026-10-25 实测 2026 年第 9 期）。官网 JournalX 逐篇页常滞后；当 frontier 来自本源而 official 落后时，本期正文尚未上线，只能按题录人工挑，等 tier2 出刊再 harvest。",
-            "hints": [
-              "官网 https://gtxk.nlc.cn/ 出刊后自动跟上（tier2），不急可等",
-              "要立刻拿题录：浏览器打开本源 url 直接看当期目录"
-            ]
-          },
-          {
             "id": "quarter_scan",
             "kind": "journalx_quarter_scan",
             "tier": 2,

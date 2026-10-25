@@ -461,9 +461,17 @@ def _enumArchiveYvi(spec: dict, journalCfg: dict, httpCfg: dict, state, today) -
 
 
 def _enumCnkiCurrent(spec: dict, journalCfg: dict, httpCfg: dict, state, today) -> List[IssueRef]:
-    """CNKI 采编平台首页：只宣告它当前的那一期。"""
+    """CNKI 采编平台首页：只宣告它当前的那一期。
+
+    cbpt 域名错配不会 404，而是静默渲染**另一本刊**的首页（实测 mid=GJTS 返回
+    《国际经贸探索》2026年09期），所以必须按刊名校验页面归属，宁可 failed 不可假 frontier。
+    """
     url = spec["url"]
     text = BeautifulSoup(_fetchHtml(spec, url, httpCfg), "lxml").get_text(" ", strip=True)
+    required = spec.get("requiredPageText") or ([journalCfg["name"]] if journalCfg.get("name") else [])
+    missing = [token for token in required if token not in text]
+    if missing:
+        raise ValueError(f"页面缺少刊名标识 {missing}，疑似 cbpt 域名错配到别的期刊")
     match = _CNKI_ISSUE_RE.search(text)
     if not match:
         return []

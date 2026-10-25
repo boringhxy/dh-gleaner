@@ -167,7 +167,7 @@ class ManualSourceTests(unittest.TestCase):
             ],
             issuesPerYear=4,
         )
-        with mock.patch.object(discovery, "fetchHtml", return_value=cnkiHtml("2025年04期")):
+        with mock.patch.object(discovery, "fetchHtml", return_value=cnkiHtml("数字人文 2025年04期")):
             item = runJournal(journalCfg)
         wechat = next(s for s in item.sources if s.sourceId == "wechat_toc")
         self.assertEqual(wechat.status, "manual")
@@ -191,7 +191,7 @@ class ManualSourceTests(unittest.TestCase):
             def fake(url, ua="", **kwargs):
                 if "weixin" in url:
                     return wechatHtml("《数字人文》2026年第3期目录")
-                return cnkiHtml("2025年04期")
+                return cnkiHtml("数字人文 2025年04期")
 
             with mock.patch.object(discovery, "fetchHtml", side_effect=fake):
                 item = runJournal(journalCfg, state=state)
@@ -201,6 +201,19 @@ class ManualSourceTests(unittest.TestCase):
         self.assertEqual(payload["official"]["label"], "2025年第4期")
         cbpt = next(s for s in payload["sources"] if s["sourceId"] == "cbpt")
         self.assertEqual(cbpt["lagIssues"], 3)
+
+    def testCnkiDomainMismatchDoesNotBecomeFrontier(self):
+        """实测事故：mid=GJTS 的 cbpt 页静默渲染《国际经贸探索》，期次再新也不是本刊的。"""
+        journalCfg = journalWithSources(
+            "国家图书馆学刊",
+            [source("cbpt", "cnki_cbpt_current", tier=1, official=False, url="https://x/index.aspx")],
+        )
+        with mock.patch.object(discovery, "fetchHtml", return_value=cnkiHtml("国际经贸探索 2026年09期")):
+            item = runJournal(journalCfg)
+        cbpt = next(s for s in item.sources if s.sourceId == "cbpt")
+        self.assertEqual(cbpt.status, "failed")
+        self.assertIn("错配", cbpt.detail)
+        self.assertIsNone(item.frontier)
 
     def testWrongWeChatPageDoesNotBecomeFrontier(self):
         journalCfg = journalWithSources(
