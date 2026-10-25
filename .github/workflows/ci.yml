@@ -28,16 +28,23 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install package with dev and mcp extras
+      - name: Install uv (test deps come from uv.lock)
+        run: python -m pip install --upgrade pip uv
+
+      # --locked：pyproject 改了而 uv.lock 没跟着更新时，这一步直接报错而非
+      # 静默重解——小票不会悄悄过期，这正是当初「不加 lockfile」担心的腐烂。
+      # 端到端安装路径（pipx / uv tool install git+…）不吃 lockfile，仍由
+      # build job 的 sdist/wheel 冒烟覆盖。
+      - name: Sync locked dev environment
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,mcp]"
+          uv venv .venv --python "${{ matrix.python-version }}"
+          uv sync --locked --extra dev --extra mcp
 
       - name: Lint (ruff)
-        run: ruff check .
+        run: uv run --no-sync ruff check .
 
       - name: Unit tests
-        run: python -B -m unittest discover -s tests -v
+        run: uv run --no-sync python -B -m unittest discover -s tests -v
 
   build:
     name: build distribution

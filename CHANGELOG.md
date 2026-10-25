@@ -21,6 +21,7 @@
 
 ### 变更
 
+- **改为采纳 `uv.lock`（推翻 2026-10 早期「不加 lockfile」的记录）**：当时的理由——pipx/uv tool 不读 lock、常更新的包会腐烂——依然成立，端到端安装路径也仍由 build job 的 sdist/wheel 冒烟覆盖；但「在仓库里开发」这一条路径此前完全不受约束：今天测试绿、明天重装环境后依赖悄悄换版本，排查要猜是代码还是依赖。CI 测试作业改为 `uv venv --python <矩阵版本>` + `uv sync --locked`：pyproject 与 lock 不同步时直接失败，腐烂担忧由 CI 强制消掉。跨版本实测（2026-10-25）：`uv sync --locked` 在 Python 3.10 与 3.13 的独立环境均通过。
 - **MCP 服务端**工具数 13 → 14（写本地组新增 `harvest_year`）；`list_journals` 返回增加 `harvestOnly` 字段。
 - **抓取更克制**：重试间隔从固定 `retryInterval` 改为指数退避（上限 300 秒），站点返回 `Retry-After` 时优先听站点的；`capture-channel` 的逐页请求之间接入 `harvestDelay` 限速（此前只有 harvest 路径限速）；栏目分页数加 `maxChannelPages` 硬上限（默认 50）——「共 N 页」是用正则从页面文本抠的，抠错一位数就会变成上万个请求，触顶时记为失败而非静默少给清单。补 `tests/test_fetch_policy.py` 11 个离线用例。
 - 抓取质量校验对 `captureType="harvest"` 跳过「year==0」误抓判定（散篇清单本就没有单一期次）。

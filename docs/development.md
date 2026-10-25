@@ -12,6 +12,8 @@ pip install -e ".[dev,mcp]"
 
 `[dev]` 提供 ruff，`[mcp]` 是 MCP 层与相关测试所需的依赖。
 
+CI 的测试作业用 `uv.lock` 锁定依赖（`uv venv --python <版本>` + `uv sync --locked`），改动 `pyproject.toml` 依赖后需 `uv lock` 重新生成小票，否则 CI 报锁不一致；上面的 pip 装法不受影响，只是不锁定具体版本。
+
 ## 目录结构
 
 ```text
