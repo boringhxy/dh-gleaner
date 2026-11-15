@@ -29,6 +29,8 @@ def _headingLabel(issue: Optional[IssueInfo], articles: List[Article]) -> str:
     if articles and all((a.sourceType or "issue") == "harvest" for a in articles):
         year = articles[0].year
         return f"{year}年散篇清单" if year else "散篇清单"
+    if articles and all(a.sourceType in ("conference", "overseas") for a in articles):
+        return f"{issue.year}年 / 海外来源" if issue else "海外来源"
     if issue:
         return issue.label()
     return ""
@@ -215,3 +217,4 @@ def getArticleByIndex(articles: List[Article], idx: int) -> Optional[Article]:
         if getattr(article, "_globalIndex", 0) == idx:
             return article
     return None
+

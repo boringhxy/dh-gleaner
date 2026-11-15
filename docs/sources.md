@@ -137,3 +137,8 @@
 5. 做真实冒烟测试时，先备份再恢复你现有的 `pending.json` / `review.md` —— 或者更稳妥地用一个临时的数据目录（`--data-dir`）。
 
 如果最终需要新写 parser，请一并提交用于测试的样例 HTML（可以是你自己简化过的片段，不要直接提交整页线上内容）。
+
+
+## 海外数字人文来源
+
+独立来源目录与 `sources` / `capture-source` 命令见[海外来源与访问说明](overseas-sources.md)。与原有中文期刊轮转分开，不会加入 `capture --all-journals`。

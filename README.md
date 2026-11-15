@@ -528,3 +528,8 @@ ruff check .
 ## 许可
 
 MIT，见 [LICENSE](LICENSE)。
+
+
+## 海外数字人文来源
+
+新增 `dhgleaner sources` 查看官方来源、访问条件与接入状态；`dhgleaner capture-source --source chr --year 2025 --dry-run` 预览海外题录。MCP对应 `list_overseas_sources` 与 `capture_overseas_source`。22个来源中9个已实现采集适配，13个仅登记入口；适配器尚未在本环境完成在线实抓。详见[海外来源与机构访问说明](docs/overseas-sources.md)。

@@ -56,6 +56,8 @@ ARTICLES = [
 
 
 EXPECTED_TOOLS = {
+    "list_overseas_sources",
+    "capture_overseas_source",
     "list_journals",
     "get_capture_status",
     "list_pending_articles",
@@ -368,3 +370,4 @@ class DiscoveryToolTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

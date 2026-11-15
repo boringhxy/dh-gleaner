@@ -235,3 +235,8 @@ pipx install "dh-gleaner[mcp] @ git+https://github.com/boringhxy/dh-gleaner.git"
 ```
 
 第 6 步不能省。`preview_import` 与 `import_to_zotero` 之间隔着的就是使用者的确认，这是本项目最正式的一条边界。
+
+
+## 海外数字人文
+
+`list_overseas_sources(source="")` 只读返回官方来源及公开/订阅、机构账号与网络待实测标记。`capture_overseas_source(source, year, url="", dryRun=True, limit=200)` 捕获公开题录和摘要；默认不落盘，不下载PDF、不写Zotero。只有支持的adapter可采集，index来源明确返回未启用，不会假装成功。详见[海外来源](overseas-sources.md)。
