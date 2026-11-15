@@ -47,14 +47,22 @@ Anthology需要单一卷目录，每届目录不同；默认链接只是已经�
 | jtei | Journal of the Text Encoding Initiative | journal | Crossref元数据，非完整目录 | [官方入口](https://journals.openedition.org/jtei/) | 开放；无需机构账号 |
 | jdh | Journal of Digital History | journal | 官方入口登记；未启用自动拆篇 | [官方入口](https://journalofdigitalhistory.org/en/articles) | 开放；无需机构账号 |
 
-## 网络与学校机构访问
+## 网络与机构访问（适用于不同高校、科研机构和图书馆）
 
 - 全部来源的网络状态标为 `unknown`：未在中国大陆无代理网络逐站实测。不要把DNS错误、403、412、429、学校没有订购或登录失效统一归为“需要挂VPN”。
-- 境外网络代理解决网络连通问题；学校WebVPN解决校外机构资源访问，两者作用不同。工具沿用requests的标准代理环境变量，来源清单不包含任何用户代理地址、密码或令牌。
+- 境外网络代理解决网络连通问题；机构VPN或图书馆代理解决校外机构资源访问，两者作用不同。工具沿用requests的标准代理环境变量，来源清单不包含任何用户代理地址、密码或令牌。
 - 会议开放档案、DHQ、jTEI与JDH的公开内容一般无需学校账号；具体文件仍须以原站许可为准。登录按钮存在不表示阅读必须登录。
-- DSH、IJDH、IJHAC的公开题录可先采集；非开放全文需机构订阅，未核实浙大对具体年份的购买范围，不作全文可用保证。
-- [浙大图书馆校外访问](https://libweb.zju.edu.cn/56334/list.htm)列出WebVPN、CARSI及RVPN。[CARSI说明](https://libweb.zju.edu.cn/2020/0211/c39479a1959553/page.htm)列有Oxford Journals、Springer Link等平台；选择浙江大学并自行统一身份认证。
-- [CARSI入口](https://ds.carsi.edu.cn/)；[学校WebVPN入口](https://webvpn.zju.edu.cn/)。CARSI身份认证无需同时开RVPN，学校提醒避免两者冲突。工具不保存学校账号密码，不自动登录。
+- DSH、IJDH、IJHAC的公开题录可先采集；非开放全文需机构订阅，访问权限取决于所属高校、科研机构或图书馆购买的具体期刊和年份；机构认证成功也不代表该机构订购了全部内容。未核实任何特定机构的订阅，不作全文可用保证。
+
+可按以下顺序选择访问方式，不预设用户属于某所学校：
+
+1. **开放获取**：直接访问官方全文或官方会议档案，通常无需机构账号。
+2. **出版商机构登录**：在出版商页面选择 Institutional login / Access through your institution，搜索自己所属高校、科研机构或图书馆，按其支持的 Shibboleth、OpenAthens 等方式认证。参见 [Oxford 官方说明](https://academic.oup.com/pages/get-help-with-access/institutional-access)、[Springer Nature 官方说明](https://support.springernature.com/en/support/solutions/articles/6000079271-access-content-that-your-institution-subscribes-to)。
+3. **中国大陆参与机构的 CARSI**：通过 [CARSI入口](https://ds.carsi.edu.cn/)选择本人所属机构；只适用于机构与资源均支持的情况。[CARSI官方常见问题](https://www.carsi.edu.cn/faq.html)。
+4. **校园网、图书馆代理或机构VPN**：按所属机构图书馆的校外访问指南操作；不统一填写某一学校的VPN地址，也不假定必须使用VPN。
+5. **机构未订购**：向所属图书馆咨询文献传递/馆际互借，或查找作者公开稿。工具不保存机构账号密码、不自动登录。
+
+以上是机构资源访问路径；境外网络代理仅涉及连通性。来源的网络状态仍为待实测，不能由账号提示、HTTP 403或DNS失败推断必须使用境外代理。
 
 ## 稳定渠道与依据
 

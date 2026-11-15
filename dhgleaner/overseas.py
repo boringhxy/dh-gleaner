@@ -210,7 +210,7 @@ def renderSources(sourceId=''):
     for source in sources:
         lines.append(f"| {source['id']} | {source['name']} | {source['adapter']} | {source['fulltextAccess']} | {source['institutionRequired']} | 未实测 |")
     lines += ['', 'index=仅登记官方入口；其余为已实现适配器，尚未完成本环境实时网络验证。',
-              '公开来源无需机构账号；非OA全文需学校订阅。境外网络代理与学校WebVPN不同；未实测时不声称必须开VPN。']
+              '公开来源无需机构账号；非OA全文取决于所属机构订阅，可使用机构登录、校园网、图书馆代理或机构VPN。境外网络代理与机构远程访问不同；未实测时不声称必须开VPN。']
     if sourceId:
         lines += ['', json.dumps(sources[0], ensure_ascii=False, indent=2)]
     return '\n'.join(lines)

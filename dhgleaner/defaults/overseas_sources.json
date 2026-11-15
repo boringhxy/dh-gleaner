@@ -343,7 +343,15 @@
         "https://academic.oup.com/dsh"
       ],
       "note": "按ISSN查询Crossref元数据，非原刊完整目录；出版方可能未提交摘要或全部文章。",
-      "accessNote": "题录公开；非OA全文需机构订阅。浙大校外先尝试CARSI，或学校WebVPN；未验证本刊具体年份的订购范围。"
+      "accessNote": "题录公开；非OA全文需机构订阅：所属高校、科研机构或图书馆须具有对应期刊和年份的订阅权限。可尝试出版商Institutional login（Shibboleth/OpenAthens等）、机构校园网/IP认证、图书馆代理或机构VPN；中国大陆参与机构也可尝试CARSI。未核实任何特定机构的订购范围。",
+      "institutionAccessMethods": [
+        "publisher_institutional_login",
+        "institution_network_ip",
+        "library_proxy",
+        "institution_vpn",
+        "carsi_if_participating"
+      ],
+      "institutionEntitlement": "depends_on_institution_title_and_year"
     },
     {
       "id": "ijdh",
@@ -366,7 +374,15 @@
         "https://link.springer.com/journal/42803"
       ],
       "note": "按ISSN查询Crossref元数据，非原刊完整目录；出版方可能未提交摘要或全部文章。",
-      "accessNote": "题录公开；非OA全文需机构订阅。浙大校外先尝试CARSI，或学校WebVPN；未验证本刊具体年份的订购范围。"
+      "accessNote": "题录公开；非OA全文需机构订阅：所属高校、科研机构或图书馆须具有对应期刊和年份的订阅权限。可尝试出版商Institutional login（Shibboleth/OpenAthens等）、机构校园网/IP认证、图书馆代理或机构VPN；中国大陆参与机构也可尝试CARSI。未核实任何特定机构的订购范围。",
+      "institutionAccessMethods": [
+        "publisher_institutional_login",
+        "institution_network_ip",
+        "library_proxy",
+        "institution_vpn",
+        "carsi_if_participating"
+      ],
+      "institutionEntitlement": "depends_on_institution_title_and_year"
     },
     {
       "id": "ijhac",
@@ -389,7 +405,15 @@
         "https://www.euppublishing.com/loi/ijhac"
       ],
       "note": "按ISSN查询Crossref元数据，非原刊完整目录；出版方可能未提交摘要或全部文章。",
-      "accessNote": "题录公开；非OA全文需机构订阅。浙大校外先尝试CARSI，或学校WebVPN；未验证本刊具体年份的订购范围。"
+      "accessNote": "题录公开；非OA全文需机构订阅：所属高校、科研机构或图书馆须具有对应期刊和年份的订阅权限。可尝试出版商Institutional login（Shibboleth/OpenAthens等）、机构校园网/IP认证、图书馆代理或机构VPN；中国大陆参与机构也可尝试CARSI。未核实任何特定机构的订购范围。",
+      "institutionAccessMethods": [
+        "publisher_institutional_login",
+        "institution_network_ip",
+        "library_proxy",
+        "institution_vpn",
+        "carsi_if_participating"
+      ],
+      "institutionEntitlement": "depends_on_institution_title_and_year"
     },
     {
       "id": "dhq",
@@ -456,8 +480,10 @@
     }
   ],
   "accessGuides": {
-    "zjuCarsi": "https://ds.carsi.edu.cn/",
-    "zjuWebVPN": "https://webvpn.zju.edu.cn/",
-    "zjuGuide": "https://libweb.zju.edu.cn/56334/list.htm"
+    "carsi": "https://ds.carsi.edu.cn/",
+    "carsiFaq": "https://www.carsi.edu.cn/faq.html",
+    "oxfordInstitutionalAccess": "https://academic.oup.com/pages/get-help-with-access/institutional-access",
+    "springerInstitutionalAccess": "https://support.springernature.com/en/support/solutions/articles/6000079271-access-content-that-your-institution-subscribes-to",
+    "institutionSpecificGuide": "请查看自己所属高校、科研机构或图书馆的校外访问指南；未预设任何机构。"
   }
 }
