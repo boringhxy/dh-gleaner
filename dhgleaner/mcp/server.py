@@ -25,8 +25,8 @@ from ..logging_setup import forceUtf8, setupLogging
 INSTRUCTIONS = """数字人文期刊采集器：按刊按期巡检中文期刊目录页，人工筛选后再写入 Zotero。
 
 工作流：
-1. list_journals 看支持哪些刊；run_doctor 确认环境就绪。
-2. capture_issue / capture_channel 抓目录（默认 dryRun=true，只抓不落盘）。
+1. list_journals 看中文刊；list_overseas_sources 看海外来源与访问条件；run_doctor 确认环境就绪。
+2. capture_overseas_source 抓海外题录；capture_issue / capture_channel 抓中文目录（默认 dryRun=true，只抓不落盘）。
 3. list_pending_articles / get_article_abstract / search_pending_articles 读清单。
 4. preview_import 预览将要导入的文章；用户确认后，用 export_review_spreadsheet 出勾选表。
 5. import_to_zotero 写入 Zotero —— 必须 confirm=true 且 dryRun=false，否则只返回计划。
@@ -40,7 +40,7 @@ def buildServer():
     """构造 MCP server 并注册全部工具。"""
     from mcp.server.mcpserver import MCPServer
 
-    from . import tools_capture, tools_import, tools_read
+    from . import tools_capture, tools_import, tools_overseas, tools_read
 
     server = MCPServer(
         name="dh-gleaner",
@@ -49,6 +49,7 @@ def buildServer():
         instructions=INSTRUCTIONS,
     )
     tools_read.register(server)
+    tools_overseas.register(server)
     tools_capture.register(server)
     tools_import.register(server)
     return server
@@ -78,3 +79,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

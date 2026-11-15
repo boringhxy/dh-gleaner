@@ -1,0 +1,463 @@
+{
+  "schemaVersion": 1,
+  "scope": "digital_humanities_only",
+  "sources": [
+    {
+      "id": "chr",
+      "name": "Computational Humanities Research",
+      "kind": "conference",
+      "officialUrl": "https://computational-humanities-research.org/conference/",
+      "adapter": "anthology",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "open",
+      "institutionRequired": false,
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "archiveUrl": "https://anthology.ach.org/volumes/vol0003/",
+      "match": "Computational Humanities Research",
+      "conferenceYear": 2025,
+      "allowedHosts": [
+        "anthology.ach.org"
+      ],
+      "evidence": [
+        "https://2025.computational-humanities-research.org/news/proceedings/"
+      ]
+    },
+    {
+      "id": "humanistica",
+      "name": "Humanistica",
+      "kind": "conference",
+      "officialUrl": "https://humanistica2026.sciencesconf.org/",
+      "adapter": "anthology",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "open",
+      "institutionRequired": false,
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "archiveUrl": "https://anthology.ach.org/volumes/vol0004/",
+      "match": "Humanistica",
+      "conferenceYear": 2026,
+      "allowedHosts": [
+        "anthology.ach.org"
+      ],
+      "evidence": [
+        "https://anthology.ach.org/volumes/vol0004/"
+      ]
+    },
+    {
+      "id": "dhtech",
+      "name": "Digital Humanities Tech Symposium",
+      "kind": "workshop",
+      "officialUrl": "https://dh-tech.adho.org/",
+      "adapter": "anthology",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "open",
+      "institutionRequired": false,
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "archiveUrl": "https://anthology.ach.org/volumes/vol0002/",
+      "match": "Digital Humanities Tech Symposium",
+      "conferenceYear": 2025,
+      "allowedHosts": [
+        "anthology.ach.org"
+      ],
+      "evidence": [
+        "https://dh-tech.adho.org/2025/11/03/2025-dhtech-symposium-proceedings/"
+      ]
+    },
+    {
+      "id": "dhnb",
+      "name": "Digital Humanities in the Nordic and Baltic Countries",
+      "kind": "conference",
+      "officialUrl": "https://dhnb.eu/",
+      "adapter": "ojs",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "open",
+      "institutionRequired": false,
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "archiveUrl": "https://journals.uio.no/dhnbpub/issue/archive",
+      "allowedHosts": [
+        "journals.uio.no"
+      ],
+      "pathPrefix": "/dhnbpub/",
+      "evidence": [
+        "https://journals.uio.no/dhnbpub/about"
+      ]
+    },
+    {
+      "id": "adho",
+      "name": "ADHO Digital Humanities",
+      "kind": "conference",
+      "officialUrl": "https://adho.org/conference/",
+      "adapter": "index",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "open",
+      "institutionRequired": false,
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "archiveUrl": "https://zenodo.org/records/22656106",
+      "note": "摘要集已有官方XML；先核实每届文件结构再拆分单篇，不把整本摘要集当作一篇论文。",
+      "evidence": [
+        "https://adho.org/conference/conference-protocol/",
+        "https://dh2026.adho.org/dh2026-book-of-abstracts-first-release-now-available-on-zenodo/"
+      ]
+    },
+    {
+      "id": "dhd",
+      "name": "DHd",
+      "kind": "conference",
+      "officialUrl": "https://dig-hum.de/",
+      "adapter": "index",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "open",
+      "institutionRequired": false,
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "archiveUrl": "https://github.com/DHd-Verband/DHd-Abstracts-2025",
+      "note": "官方年度仓库有TEI XML和CSV；各年结构需单独验证。",
+      "evidence": [
+        "https://github.com/DHd-Verband/DHd-Abstracts-2025"
+      ]
+    },
+    {
+      "id": "eadh",
+      "name": "EADH Conference",
+      "kind": "conference",
+      "officialUrl": "https://eadh.org/conferences",
+      "adapter": "index",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "open",
+      "institutionRequired": false,
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "archiveUrl": "https://eadh.org/conferences",
+      "note": "官方来源索引已纳入；自动单篇采集暂不启用，未将PDF整册或议程冒充完整论文数据。",
+      "evidence": [
+        "https://eadh.org/conferences"
+      ]
+    },
+    {
+      "id": "dhbenelux",
+      "name": "DH Benelux",
+      "kind": "conference",
+      "officialUrl": "https://dhbenelux.org/",
+      "adapter": "index",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "open",
+      "institutionRequired": false,
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "archiveUrl": "https://journal.dhbenelux.org/volumes/",
+      "note": "官方来源索引已纳入；自动单篇采集暂不启用，未将PDF整册或议程冒充完整论文数据。",
+      "evidence": [
+        "https://journal.dhbenelux.org/volumes/"
+      ]
+    },
+    {
+      "id": "ach",
+      "name": "ACH Conference",
+      "kind": "conference",
+      "officialUrl": "https://ach2026.ach.org/",
+      "adapter": "index",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "open",
+      "institutionRequired": false,
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "archiveUrl": "https://ach2026.ach.org/en/program/",
+      "note": "官方来源索引已纳入；自动单篇采集暂不启用，未将PDF整册或议程冒充完整论文数据。",
+      "evidence": [
+        "https://ach2026.ach.org/en/program/"
+      ]
+    },
+    {
+      "id": "jadh",
+      "name": "JADH Conference",
+      "kind": "conference",
+      "officialUrl": "https://www.jadh.org/",
+      "adapter": "index",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "open",
+      "institutionRequired": false,
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "archiveUrl": "https://www.jadh.org/conferences",
+      "note": "官方来源索引已纳入；自动单篇采集暂不启用，未将PDF整册或议程冒充完整论文数据。",
+      "evidence": [
+        "https://www.jadh.org/conferences"
+      ]
+    },
+    {
+      "id": "aiucd",
+      "name": "AIUCD",
+      "kind": "conference",
+      "officialUrl": "https://www.aiucd.it/",
+      "adapter": "index",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "open",
+      "institutionRequired": false,
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "archiveUrl": "https://amsacta.unibo.it/id/eprint/8980/",
+      "note": "官方来源索引已纳入；自动单篇采集暂不启用，未将PDF整册或议程冒充完整论文数据。",
+      "evidence": [
+        "https://amsacta.unibo.it/id/eprint/8980/"
+      ]
+    },
+    {
+      "id": "csdh",
+      "name": "CSDH/SCHN",
+      "kind": "conference",
+      "officialUrl": "https://csdh-schn.ca/",
+      "adapter": "index",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "open",
+      "institutionRequired": false,
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "archiveUrl": "https://csdh-schn.ca/2026-csdh-schn-annual-conference-program/",
+      "note": "官方来源索引已纳入；自动单篇采集暂不启用，未将PDF整册或议程冒充完整论文数据。",
+      "evidence": [
+        "https://csdh-schn.ca/2026-csdh-schn-annual-conference-program/"
+      ]
+    },
+    {
+      "id": "dha",
+      "name": "Digital Humanities Australasia",
+      "kind": "conference",
+      "officialUrl": "https://aa-dh.org/",
+      "adapter": "index",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "open",
+      "institutionRequired": false,
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "archiveUrl": "https://aa-dh.org/conferences/dha2025/",
+      "note": "官方来源索引已纳入；自动单篇采集暂不启用，未将PDF整册或议程冒充完整论文数据。",
+      "evidence": [
+        "https://aa-dh.org/conferences/dha2025/"
+      ]
+    },
+    {
+      "id": "hdh",
+      "name": "Humanidades Digitales Hispánicas",
+      "kind": "conference",
+      "officialUrl": "https://humanidadesdigitaleshispanicas.es/",
+      "adapter": "index",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "open",
+      "institutionRequired": false,
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "archiveUrl": "https://humanidadesdigitaleshispanicas.es/portfolio/congreso-hdh-2025/",
+      "note": "官方来源索引已纳入；自动单篇采集暂不启用，未将PDF整册或议程冒充完整论文数据。",
+      "evidence": [
+        "https://humanidadesdigitaleshispanicas.es/portfolio/congreso-hdh-2025/"
+      ]
+    },
+    {
+      "id": "redhd",
+      "name": "Encuentro de Humanistas Digitales",
+      "kind": "conference",
+      "officialUrl": "https://humanidadesdigitales.net/",
+      "adapter": "index",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "open",
+      "institutionRequired": false,
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "archiveUrl": "https://humanidadesdigitales.net/encuentros-rhd/",
+      "note": "官方来源索引已纳入；自动单篇采集暂不启用，未将PDF整册或议程冒充完整论文数据。",
+      "evidence": [
+        "https://humanidadesdigitales.net/encuentros-rhd/"
+      ]
+    },
+    {
+      "id": "dhasa",
+      "name": "DHASA Conference",
+      "kind": "conference",
+      "officialUrl": "https://dh2026.digitalhumanities.org.za/",
+      "adapter": "index",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "open",
+      "institutionRequired": false,
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "archiveUrl": "https://upjournals.up.ac.za/index.php/dhasa/issue/archive",
+      "note": "官方来源索引已纳入；自动单篇采集暂不启用，未将PDF整册或议程冒充完整论文数据。",
+      "evidence": [
+        "https://upjournals.up.ac.za/index.php/dhasa/issue/archive"
+      ]
+    },
+    {
+      "id": "dsh",
+      "name": "Digital Scholarship in the Humanities",
+      "kind": "journal",
+      "officialUrl": "https://academic.oup.com/dsh",
+      "adapter": "crossref",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "mixed",
+      "institutionRequired": "subscription_articles_only",
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "issn": "2055-768X",
+      "allowedHosts": [
+        "api.crossref.org"
+      ],
+      "evidence": [
+        "https://academic.oup.com/dsh"
+      ],
+      "note": "按ISSN查询Crossref元数据，非原刊完整目录；出版方可能未提交摘要或全部文章。",
+      "accessNote": "题录公开；非OA全文需机构订阅。浙大校外先尝试CARSI，或学校WebVPN；未验证本刊具体年份的订购范围。"
+    },
+    {
+      "id": "ijdh",
+      "name": "International Journal of Digital Humanities",
+      "kind": "journal",
+      "officialUrl": "https://link.springer.com/journal/42803",
+      "adapter": "crossref",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "mixed",
+      "institutionRequired": "subscription_articles_only",
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "issn": "2524-7840",
+      "allowedHosts": [
+        "api.crossref.org"
+      ],
+      "evidence": [
+        "https://link.springer.com/journal/42803"
+      ],
+      "note": "按ISSN查询Crossref元数据，非原刊完整目录；出版方可能未提交摘要或全部文章。",
+      "accessNote": "题录公开；非OA全文需机构订阅。浙大校外先尝试CARSI，或学校WebVPN；未验证本刊具体年份的订购范围。"
+    },
+    {
+      "id": "ijhac",
+      "name": "International Journal of Humanities and Arts Computing",
+      "kind": "journal",
+      "officialUrl": "https://www.euppublishing.com/loi/ijhac",
+      "adapter": "crossref",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "mixed",
+      "institutionRequired": "subscription_articles_only",
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "issn": "1755-1706",
+      "allowedHosts": [
+        "api.crossref.org"
+      ],
+      "evidence": [
+        "https://www.euppublishing.com/loi/ijhac"
+      ],
+      "note": "按ISSN查询Crossref元数据，非原刊完整目录；出版方可能未提交摘要或全部文章。",
+      "accessNote": "题录公开；非OA全文需机构订阅。浙大校外先尝试CARSI，或学校WebVPN；未验证本刊具体年份的订购范围。"
+    },
+    {
+      "id": "dhq",
+      "name": "Digital Humanities Quarterly",
+      "kind": "journal",
+      "officialUrl": "https://dhq.digitalhumanities.org/",
+      "adapter": "crossref",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "open",
+      "institutionRequired": false,
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "issn": "1938-4122",
+      "allowedHosts": [
+        "api.crossref.org"
+      ],
+      "evidence": [
+        "https://dhq.digitalhumanities.org/"
+      ],
+      "note": "按ISSN查询Crossref元数据，非原刊完整目录；出版方可能未提交摘要或全部文章。"
+    },
+    {
+      "id": "jtei",
+      "name": "Journal of the Text Encoding Initiative",
+      "kind": "journal",
+      "officialUrl": "https://journals.openedition.org/jtei/",
+      "adapter": "crossref",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "open",
+      "institutionRequired": false,
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "issn": "2162-5603",
+      "allowedHosts": [
+        "api.crossref.org"
+      ],
+      "evidence": [
+        "https://journals.openedition.org/jtei/"
+      ],
+      "note": "按ISSN查询Crossref元数据，非原刊完整目录；出版方可能未提交摘要或全部文章。"
+    },
+    {
+      "id": "jdh",
+      "name": "Journal of Digital History",
+      "kind": "journal",
+      "officialUrl": "https://journalofdigitalhistory.org/",
+      "adapter": "index",
+      "verification": "official_source_verified_adapter_not_live_tested",
+      "checkedAt": "2026-11-15",
+      "metadataAccess": "public",
+      "fulltextAccess": "open",
+      "institutionRequired": false,
+      "networkAccess": "unknown",
+      "networkNote": "未在中国大陆无代理网络实测；公开获取不等于一定可直连，连接失败也不等于必须开VPN。",
+      "archiveUrl": "https://journalofdigitalhistory.org/en/articles",
+      "note": "动态网站，公开获取；尚未核实可稳定采集的公开数据接口。",
+      "evidence": [
+        "https://journalofdigitalhistory.org/"
+      ]
+    }
+  ],
+  "accessGuides": {
+    "zjuCarsi": "https://ds.carsi.edu.cn/",
+    "zjuWebVPN": "https://webvpn.zju.edu.cn/",
+    "zjuGuide": "https://libweb.zju.edu.cn/56334/list.htm"
+  }
+}

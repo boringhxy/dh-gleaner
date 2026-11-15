@@ -219,7 +219,7 @@ class ZoteroClient:
             return True
         if normalizeTitle(data.get("title", "")) != normalizeTitle(article.title):
             return False
-        journal = normalizeTitle(data.get("publicationTitle", ""))
+        journal = normalizeTitle(data.get("conferenceName", "") if article.itemType == "conferencePaper" else data.get("publicationTitle", ""))
         incomingJournal = normalizeTitle(article.journal)
         yearMatch = re.search(r"(?<!\d)(\d{4})(?!\d)", str(data.get("date", "")))
         year = int(yearMatch.group(1)) if yearMatch else 0
@@ -258,7 +258,7 @@ class ZoteroClient:
                     )
                     break
                 data = item.get("data", {})
-                if data.get("itemType") != "journalArticle":
+                if data.get("itemType") != article.itemType:
                     continue
                 if self._sameArticle(article, data):
                     return item["key"]
@@ -274,11 +274,16 @@ class ZoteroClient:
         extraTags: Optional[List[str]] = None,
     ) -> Optional[str]:
         """创建期刊文章条目。"""
-        template = self.zot.item_template("journalArticle")
+        template = self.zot.item_template(article.itemType)
         template["title"] = article.title
-        template["publicationTitle"] = article.journal
-        template["volume"] = str(article.volume) if article.volume else ""
-        template["issue"] = str(article.issue) if article.issue else ""
+        if article.itemType == "conferencePaper":
+            template["conferenceName"] = article.journal
+            template["proceedingsTitle"] = article.issueDisplay or article.journal
+            template["volume"] = str(article.volume) if article.volume else ""
+        else:
+            template["publicationTitle"] = article.journal
+            template["volume"] = str(article.volume) if article.volume else ""
+            template["issue"] = str(article.issue) if article.issue else ""
         template["date"] = article.publishDate or str(article.year)
         template["pages"] = article.pagesStr()
         template["abstractNote"] = article.abstract or ""
@@ -444,7 +449,7 @@ class ZoteroClient:
             if article.failReason:
                 extraParts.append(f"PDF自动获取失败: {article.failReason}")
             extraParts.append(f"PDF下载链接: {pdfUrlForNote}")
-            extraParts.append("（需登录学校/CNKI账号或手动访问期刊页面后下载）")
+            extraParts.append("（访问条件以来源说明为准；网络失败不等于需要机构账号或VPN）")
             extraTags.append("PDF待手动下载")
         extraText = " | ".join(extraParts)
 
@@ -484,3 +489,4 @@ class ZoteroClient:
             "pdfLinkRecorded": linkRecorded,
             "reason": reason,
         }
+

@@ -67,6 +67,7 @@ class Article:
     publishDate: str = ""
     capturedAt: str = ""
     status: str = STATUS_NEW
+    itemType: str = "journalArticle"  # overseas conferences retain their bibliographic type
     zoteroKey: str = ""            # 导入后记录的 Zotero item key
     failReason: str = ""           # 失败原因
 
@@ -103,3 +104,4 @@ class Article:
     @classmethod
     def fromDict(cls, d: dict) -> "Article":
         return cls(**{k: v for k, v in d.items() if k in cls.__dataclass_fields__})
+

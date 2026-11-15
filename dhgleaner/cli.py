@@ -715,6 +715,15 @@ def main():
     parser.add_argument("--data-dir", help=dataDirHelp)
     sub = parser.add_subparsers(dest="command", help="子命令")
 
+    pSources = sub.add_parser("sources", help="列出海外数字人文来源、访问条件与接入状态")
+    pSources.add_argument("--source", default="", help="来源ID，如 chr/dhnb/dsh")
+    pSources.add_argument("--json", action="store_true", help="输出带访问标记的来源清单")
+    pOverseas = sub.add_parser("capture-source", help="捕获海外公开题录与摘要，供人工筛选")
+    pOverseas.add_argument("--source", required=True, help="来源ID")
+    pOverseas.add_argument("--year", required=True, type=int)
+    pOverseas.add_argument("--url", default="", help="指定官方卷目录")
+    pOverseas.add_argument("--dry-run", action="store_true", help="只预览，不覆盖筛选数据")
+
     pCap = sub.add_parser("capture", help="按指定年期或目录 URL 捕获期刊文章")
     pCap.add_argument("--journal", help="指定期刊名；短别名支持 dhr/szrw/zgszrw/tadh/tsgzz/tsglt")
     pCap.add_argument("--all-journals", action="store_true", help="显式抓取配置中的全部期刊")
@@ -791,7 +800,7 @@ def main():
 
     # 子命令之后也允许写 --data-dir，两种位置等价；
     # default=SUPPRESS 是关键：否则子解析器会用默认值覆盖顶层已解析的值。
-    for subParser in (pCap, pChan, pHar, pDisc, pRev, pExport, pScreen, pImp, pDoc, pAbs, pInit, pInitColl):
+    for subParser in (pSources, pOverseas, pCap, pChan, pHar, pDisc, pRev, pExport, pScreen, pImp, pDoc, pAbs, pInit, pInitColl):
         subParser.add_argument("--data-dir", default=argparse.SUPPRESS, help=dataDirHelp)
 
     args = parser.parse_args()
@@ -801,10 +810,27 @@ def main():
 
     setDataDir(getattr(args, "data_dir", None))
     cfg = loadConfig()
-    readOnlyCommand = args.command in {"doctor", "review", "abstract"} or bool(getattr(args, "dry_run", False))
+    readOnlyCommand = args.command in {"sources", "doctor", "review", "abstract"} or bool(getattr(args, "dry_run", False))
     if args.command == "discover" and args.no_record and not args.record_url:
         readOnlyCommand = True
     setupLogging(cfg.get("logFile", "logs/capture.log"), writeFile=not readOnlyCommand)
+
+    from .overseas import renderSources, runSourceCapture, sourceById, sourceCatalog
+    if args.command == "sources":
+        try:
+            data = sourceById(args.source) if args.source else sourceCatalog()
+            print(json.dumps(data, ensure_ascii=False, indent=2) if args.json else renderSources(args.source))
+        except ValidationError as error:
+            _fail(str(error))
+        return
+    if args.command == "capture-source":
+        try:
+            markdown, articles = runSourceCapture(args.source, args.year, cfg, args.url, args.dry_run)
+            print(markdown)
+            print(f"共 {len(articles)} 篇；" + ("预览，未保存。" if args.dry_run else "已保存筛选清单；导入前请按编号选择。"))
+        except (ValidationError, OSError) as error:
+            _fail(str(error))
+        return
 
     handlers = {
         "capture": cmdCapture,
@@ -832,3 +858,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
